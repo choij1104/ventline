@@ -1,0 +1,449 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<script>try{var _t=localStorage.getItem('vl-theme');if(_t==='night')document.documentElement.setAttribute('data-theme','night');}catch(e){}</script>
+<meta name="theme-color" content="#0d47a1">
+<link rel="manifest" href="./manifest.webmanifest">
+<link rel="icon" href="./icon-192.png" sizes="192x192" type="image/png">
+<link rel="apple-touch-icon" href="./icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="VENTLINE">
+<meta name="description" content="Offline mechanical ventilation decision support. Deterministic, citation-linked rule engine built on the NIH NHLBI ARDS Network protocol card. No network calls, no data transmission.">
+<title>VENTLINE v0.1.1 — Offline Ventilator Decision Support</title>
+<!--
+  VENTLINE v0.1.1 — Offline Mechanical Ventilation Decision Support
+  © 2026 HAKOYA LLC · Auravyx Systems
+  Prototype build 2026-10-14. Single file. No network requests at runtime.
+
+  PRIMARY SOURCE (every engine rule cites a section of this card):
+  [ARDSnet] NIH NHLBI ARDS Clinical Network. Mechanical Ventilation Protocol Summary
+            (protocol card, revised 07/2008). Sections: Inclusion, Part I Setup,
+            Oxygenation goal / PEEP-FiO2 tables, Plateau pressure goal, pH goal,
+            I:E goal, Part II Weaning A-B.
+  Rules not traceable to the card are tagged [LOCAL] and are editable defaults,
+  not guideline content.
+-->
+<style>
+:root{
+  --bg:#f4f6f9;--panel:#ffffff;--ink:#14213d;--muted:#5b6475;--line:#d6dbe4;
+  --accent:#0d47a1;--accent-ink:#ffffff;--ok:#1b7f3b;--warn:#b35c00;--crit:#b3261e;
+  --chip:#e8eef8;--mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+}
+:root[data-theme="night"]{
+  --bg:#0b0f16;--panel:#141a24;--ink:#e6ebf3;--muted:#9aa5b8;--line:#2a3342;
+  --accent:#5b9bff;--accent-ink:#0b0f16;--ok:#4fd27a;--warn:#ffb454;--crit:#ff6b62;--chip:#1e2736;
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.45 -apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+header{position:sticky;top:0;z-index:5;background:var(--accent);color:var(--accent-ink);padding:10px 16px;display:flex;align-items:center;gap:12px}
+header h1{font-size:17px;margin:0;letter-spacing:.04em}
+header .v{font-size:12px;opacity:.85}
+header .sp{flex:1}
+header button{background:transparent;color:inherit;border:1px solid rgba(255,255,255,.5);border-radius:8px;padding:6px 10px;font-size:13px;min-height:36px}
+.net{font-size:12px;padding:3px 8px;border-radius:999px;background:rgba(0,0,0,.25)}
+nav{display:flex;overflow-x:auto;gap:4px;padding:8px 12px;background:var(--panel);border-bottom:1px solid var(--line);position:sticky;top:56px;z-index:4}
+nav button{flex:0 0 auto;border:1px solid var(--line);background:var(--chip);color:var(--ink);border-radius:999px;padding:8px 14px;font-size:14px;min-height:42px}
+nav button.on{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+main{padding:12px 16px 80px;max-width:860px;margin:0 auto}
+section.page{display:none}section.page.on{display:block}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px;margin:0 0 12px}
+.card h2{font-size:16px;margin:0 0 8px}
+.card h3{font-size:14px;margin:12px 0 6px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}
+label{display:block;font-size:13px;color:var(--muted);margin-bottom:3px}
+input,select{width:100%;min-height:44px;border:1px solid var(--line);border-radius:8px;padding:8px 10px;font-size:16px;background:var(--bg);color:var(--ink)}
+.btn{display:inline-block;border:0;border-radius:10px;padding:12px 18px;font-size:15px;font-weight:600;background:var(--accent);color:var(--accent-ink);min-height:46px;cursor:pointer}
+.btn.sec{background:var(--chip);color:var(--ink);border:1px solid var(--line)}
+.row{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:10px}
+.out{margin-top:12px}
+.step{border-left:4px solid var(--accent);background:var(--chip);border-radius:8px;padding:10px 12px;margin:8px 0}
+.step.ok{border-color:var(--ok)}.step.warn{border-color:var(--warn)}.step.crit{border-color:var(--crit)}
+.step b{display:block;margin-bottom:3px}
+.cite{display:block;font-size:12px;color:var(--muted);margin-top:4px;font-family:var(--mono)}
+.tag{display:inline-block;font-size:11px;padding:2px 7px;border-radius:999px;background:var(--chip);border:1px solid var(--line);margin-left:6px;vertical-align:middle}
+.tag.local{border-color:var(--warn);color:var(--warn)}
+.tw{overflow-x:auto;-webkit-overflow-scrolling:touch;margin-top:6px}
+table{min-width:100%;border-collapse:collapse;font-size:14px;white-space:nowrap}
+th,td{border:1px solid var(--line);padding:6px 8px;text-align:center}
+th{background:var(--chip)}
+td.cur{background:var(--accent);color:var(--accent-ink);font-weight:700}
+.kv{font-family:var(--mono);font-size:14px}
+.banner{background:var(--crit);color:#fff;border-radius:8px;padding:10px 12px;font-weight:600;margin-bottom:10px}
+.muted{color:var(--muted);font-size:13px}
+.disc{font-size:12px;color:var(--muted);border-top:1px solid var(--line);padding-top:8px;margin-top:12px}
+ul.chk{list-style:none;padding:0;margin:6px 0}
+ul.chk li{padding:8px 0;border-bottom:1px solid var(--line)}
+ul.chk input{width:auto;min-height:0;margin-right:10px;transform:scale(1.3)}
+@media print{header,nav,.btn,.noprint{display:none!important}body{background:#fff;color:#000}.card{border:0;page-break-inside:avoid}}
+</style>
+</head>
+<body>
+<header>
+  <h1>VENTLINE</h1><span class="v">v0.1.1 · offline</span>
+  <span class="sp"></span>
+  <span class="net" id="net">checking…</span>
+  <button id="themeBtn" type="button">Night</button>
+</header>
+<nav>
+  <button data-p="setup" class="on">1 Setup</button>
+  <button data-p="adjust">2 Adjust</button>
+  <button data-p="abg">3 ABG</button>
+  <button data-p="alarm">4 Alarm</button>
+  <button data-p="wean">5 Wean</button>
+  <button data-p="log">Log</button>
+  <button data-p="about">About</button>
+</nav>
+<main>
+
+<!-- ============ 1 SETUP ============ -->
+<section class="page on" id="p-setup">
+  <div class="card">
+    <h2>Patient &amp; environment</h2>
+    <div class="grid">
+      <div><label>Environment</label>
+        <select id="env">
+          <option value="icu">ICU / ED (adult human)</option>
+          <option value="transport">Transport / PFC (adult human)</option>
+          <option value="swine">Preclinical swine (research)</option>
+          <option value="edu">Education / simulation</option>
+        </select></div>
+      <div id="sexWrap"><label>Sex</label><select id="sex"><option value="m">Male</option><option value="f">Female</option></select></div>
+      <div id="htWrap"><label>Height (cm)</label><input id="ht" type="number" inputmode="decimal" placeholder="e.g. 175"></div>
+      <div id="wtWrap" style="display:none"><label>Actual body weight (kg)</label><input id="wt" type="number" inputmode="decimal" placeholder="e.g. 45"></div>
+      <div><label>Ventilator mode (any)</label>
+        <select id="mode"><option>Volume control (AC/VC)</option><option>Pressure control (PC)</option><option>PRVC</option><option>SIMV</option></select></div>
+    </div>
+    <div class="row"><button class="btn" id="setupBtn" type="button">Compute initial settings</button></div>
+    <div class="out" id="setupOut"></div>
+  </div>
+  <div class="card">
+    <h2>ARDS inclusion check <span class="tag">ARDSnet · Inclusion</span></h2>
+    <ul class="chk">
+      <li><input type="checkbox" id="inc1"> Acute onset</li>
+      <li><input type="checkbox" id="inc2"> PaO₂/FiO₂ ≤ 300 (altitude-corrected)</li>
+      <li><input type="checkbox" id="inc3"> Bilateral (patchy, diffuse, or homogeneous) infiltrates consistent with pulmonary edema</li>
+      <li><input type="checkbox" id="inc4"> No clinical evidence of left atrial hypertension</li>
+    </ul>
+    <p class="muted">All four met → the lung-protective protocol below applies as written. Otherwise the same card is still a reasonable lung-protective default, but it is being used outside its inclusion criteria.</p>
+  </div>
+</section>
+
+<!-- ============ 2 ADJUST ============ -->
+<section class="page" id="p-adjust">
+  <div class="card">
+    <h2>Current settings</h2>
+    <div class="grid">
+      <div><label>VT (mL/kg PBW)</label><input id="aVt" type="number" step="0.5" inputmode="decimal" placeholder="6"></div>
+      <div><label>Rate (/min)</label><input id="aRr" type="number" inputmode="numeric" placeholder="20"></div>
+      <div><label>PEEP (cmH₂O)</label><input id="aPeep" type="number" inputmode="numeric" placeholder="5"></div>
+      <div><label>FiO₂ (0.21–1.0)</label><input id="aFio2" type="number" step="0.05" inputmode="decimal" placeholder="0.4"></div>
+      <div><label>PEEP table</label><select id="aTable"><option value="lo">Lower PEEP / higher FiO₂</option><option value="hi">Higher PEEP / lower FiO₂</option></select></div>
+    </div>
+    <h3>Measurements</h3>
+    <div class="grid">
+      <div><label>Plateau pressure (cmH₂O)</label><input id="aPplat" type="number" inputmode="decimal" placeholder="0.5 s pause"></div>
+      <div><label>pH</label><input id="aPh" type="number" step="0.01" inputmode="decimal" placeholder="7.35"></div>
+      <div><label>PaCO₂ (mmHg)</label><input id="aPco2" type="number" inputmode="decimal" placeholder="40"></div>
+      <div><label>PaO₂ (mmHg)</label><input id="aPo2" type="number" inputmode="decimal" placeholder="70"></div>
+      <div><label>SpO₂ (%)</label><input id="aSpo2" type="number" inputmode="decimal" placeholder="92"></div>
+      <div><label>Breath stacking / dyssynchrony</label><select id="aStack"><option value="0">No</option><option value="1">Yes</option></select></div>
+    </div>
+    <div class="row"><button class="btn" id="adjBtn" type="button">Next step</button><button class="btn sec" id="adjLogBtn" type="button">Save to log</button></div>
+    <div class="out" id="adjOut"></div>
+  </div>
+  <div class="card">
+    <h2>PEEP / FiO₂ tables <span class="tag">ARDSnet · Oxygenation goal</span></h2>
+    <p class="muted">Goal PaO₂ 55–80 mmHg or SpO₂ 88–95 %. Minimum PEEP 5 cmH₂O. Highlighted cell = current pair (nearest match).</p>
+    <h3>Lower PEEP / higher FiO₂</h3>
+    <div id="tblLo"></div>
+    <h3>Higher PEEP / lower FiO₂</h3>
+    <div id="tblHi"></div>
+  </div>
+</section>
+
+<!-- ============ 3 ABG ============ -->
+<section class="page" id="p-abg">
+  <div class="card">
+    <h2>Blood gas interpretation</h2>
+    <div class="grid">
+      <div><label>pH</label><input id="bPh" type="number" step="0.01" inputmode="decimal"></div>
+      <div><label>PaCO₂ (mmHg)</label><input id="bPco2" type="number" inputmode="decimal"></div>
+      <div><label>HCO₃⁻ (mEq/L)</label><input id="bHco3" type="number" inputmode="decimal"></div>
+      <div><label>PaO₂ (mmHg)</label><input id="bPo2" type="number" inputmode="decimal"></div>
+      <div><label>FiO₂</label><input id="bFio2" type="number" step="0.05" inputmode="decimal"></div>
+    </div>
+    <div class="row"><button class="btn" id="abgBtn" type="button">Interpret</button></div>
+    <div class="out" id="abgOut"></div>
+    <p class="muted">Primary disorder is classified from pH direction and PaCO₂/HCO₃⁻ direction (standard acid–base physiology <span class="tag local">LOCAL</span>). The ventilator response lines cite the ARDSnet pH goal section. Compensation formulas are intentionally not applied in v0.1.</p>
+  </div>
+</section>
+
+<!-- ============ 4 ALARM ============ -->
+<section class="page" id="p-alarm">
+  <div class="card">
+    <h2>Acute deterioration on the ventilator <span class="tag local">LOCAL · DOPES mnemonic</span></h2>
+    <p class="muted">Checklist order, not a guideline citation. Disconnect from the circuit and bag with 100 % O₂ while working through it.</p>
+    <ul class="chk">
+      <li><input type="checkbox"> <b>D</b> — Displacement: tube depth at the teeth, ETCO₂ waveform, breath sounds, chest rise</li>
+      <li><input type="checkbox"> <b>O</b> — Obstruction: pass a suction catheter; kinks, secretions, biting</li>
+      <li><input type="checkbox"> <b>P</b> — Pneumothorax: unilateral breath sounds, tracheal shift, hemodynamic collapse → decompress</li>
+      <li><input type="checkbox"> <b>E</b> — Equipment: circuit leak, O₂ supply, ventilator fault, power</li>
+      <li><input type="checkbox"> <b>S</b> — Stacking (auto-PEEP): long expiratory flow at end-expiration → disconnect, lengthen expiratory time, lower rate</li>
+    </ul>
+    <h3>High-pressure alarm triage</h3>
+    <div class="grid">
+      <div><label>Peak pressure (cmH₂O)</label><input id="alPeak" type="number" inputmode="decimal"></div>
+      <div><label>Plateau pressure (cmH₂O)</label><input id="alPplat" type="number" inputmode="decimal"></div>
+    </div>
+    <div class="row"><button class="btn" id="alBtn" type="button">Triage</button></div>
+    <div class="out" id="alOut"></div>
+  </div>
+</section>
+
+<!-- ============ 5 WEAN ============ -->
+<section class="page" id="p-wean">
+  <div class="card">
+    <h2>A. Daily SBT screen <span class="tag">ARDSnet · Part II A</span></h2>
+    <div class="grid">
+      <div><label>FiO₂</label><input id="wFio2" type="number" step="0.05" inputmode="decimal"></div>
+      <div><label>PEEP (cmH₂O)</label><input id="wPeep" type="number" inputmode="numeric"></div>
+      <div><label>FiO₂ &amp; PEEP ≤ yesterday's values?</label><select id="wPrev"><option value="1">Yes</option><option value="0">No</option></select></div>
+      <div><label>Acceptable spontaneous effort? (rate may be cut 50 % for 5 min to assess)</label><select id="wEffort"><option value="1">Yes</option><option value="0">No</option></select></div>
+      <div><label>SBP ≥ 90 without vasopressors?</label><select id="wSbp"><option value="1">Yes</option><option value="0">No</option></select></div>
+      <div><label>Neuromuscular blockade?</label><select id="wNmb"><option value="0">No</option><option value="1">Yes</option></select></div>
+    </div>
+    <div class="row"><button class="btn" id="wScreenBtn" type="button">Screen</button></div>
+    <div class="out" id="wScreenOut"></div>
+  </div>
+  <div class="card">
+    <h2>B. SBT tolerance (assess up to 2 h) <span class="tag">ARDSnet · Part II B</span></h2>
+    <p class="muted">Trial on T-piece, trach collar, or CPAP ≤ 5 cmH₂O with PS &lt; 5; FiO₂ &lt; 0.5, PEEP &lt; 5; up to 120 min.</p>
+    <div class="grid">
+      <div><label>SpO₂ (%)</label><input id="tSpo2" type="number" inputmode="decimal"></div>
+      <div><label>PaO₂ (mmHg, optional)</label><input id="tPo2" type="number" inputmode="decimal"></div>
+      <div><label>Spontaneous VT (mL/kg PBW)</label><input id="tVt" type="number" step="0.5" inputmode="decimal"></div>
+      <div><label>Respiratory rate (/min)</label><input id="tRr" type="number" inputmode="numeric"></div>
+      <div><label>pH</label><input id="tPh" type="number" step="0.01" inputmode="decimal"></div>
+      <div><label>Minutes tolerated so far</label><input id="tMin" type="number" inputmode="numeric"></div>
+    </div>
+    <h3>Distress signs (2 or more = distress)</h3>
+    <ul class="chk">
+      <li><input type="checkbox" class="dist"> Heart rate &gt; 120 % of baseline</li>
+      <li><input type="checkbox" class="dist"> Marked accessory muscle use</li>
+      <li><input type="checkbox" class="dist"> Abdominal paradox</li>
+      <li><input type="checkbox" class="dist"> Diaphoresis</li>
+      <li><input type="checkbox" class="dist"> Marked dyspnea</li>
+    </ul>
+    <div class="row"><button class="btn" id="wTolBtn" type="button">Assess</button></div>
+    <div class="out" id="wTolOut"></div>
+  </div>
+</section>
+
+<!-- ============ LOG ============ -->
+<section class="page" id="p-log">
+  <div class="card">
+    <h2>Session log <span class="tag">device only · not a medical record</span></h2>
+    <div class="row noprint"><button class="btn sec" id="copyLog" type="button">Copy</button><button class="btn sec" id="printLog" type="button">Print</button><button class="btn sec" id="clearLog" type="button">Clear</button></div>
+    <div id="logOut" class="out"></div>
+  </div>
+</section>
+
+<!-- ============ ABOUT ============ -->
+<section class="page" id="p-about">
+  <div class="card">
+    <h2>VENTLINE v0.1.1 — prototype</h2>
+    <p>Offline, deterministic, citation-linked mechanical ventilation decision support. Same inputs always give the same output. Every engine step carries its source section.</p>
+    <h3>Source</h3>
+    <p class="kv">[ARDSnet] NIH NHLBI ARDS Clinical Network. Mechanical Ventilation Protocol Summary (protocol card, rev. 07/2008).</p>
+    <h3>Tagged LOCAL</h3>
+    <p class="muted">Swine weight-based defaults, acid–base classification, DOPES checklist, peak-vs-plateau triage. These are editable defaults, not guideline content, and are marked in the UI.</p>
+    <h3>Not in v0.1</h3>
+    <p class="muted">Pediatric settings, pressure-support step-down schedule, prone positioning, ECMO referral, neuromuscular blockade dosing, transport ventilator model-specific limits, PFC-specific ventilation guidance. Each will be added only after its primary source is read.</p>
+    <div class="disc"><b>Intended use.</b> Reference and decision-support aid for trained clinicians and researchers. Not a medical device; not reviewed or cleared by FDA. Clinical judgment and the current published protocol govern. No patient data is transmitted; the log stays in this browser and is not a medical record.</div>
+    <p class="muted">© 2026 HAKOYA LLC · Auravyx Systems</p>
+  </div>
+</section>
+</main>
+
+<script>
+/* ---------- Knowledge: ARDSnet card constants ---------- */
+const C = {
+  src:'ARDSnet card 07/2008',
+  tblLo:[[0.3,5],[0.4,5],[0.4,8],[0.5,8],[0.5,10],[0.6,10],[0.7,10],[0.7,12],[0.7,14],[0.8,14],[0.9,14],[0.9,16],[0.9,18],[1.0,18],[1.0,20],[1.0,22],[1.0,24]],
+  tblHi:[[0.3,5],[0.3,8],[0.3,10],[0.3,12],[0.3,14],[0.4,14],[0.4,16],[0.5,16],[0.5,18],[0.5,20],[0.6,20],[0.7,20],[0.8,20],[0.8,22],[0.9,22],[1.0,22],[1.0,24]],
+  pbw(sex,cm){ return (sex==='m'?50:45.5)+0.91*(cm-152.4); } // card: 50/45.5 + 2.3*(in-60); 2.3/in = 0.91/cm
+};
+const $=id=>document.getElementById(id);
+const n=id=>{const v=parseFloat($(id).value);return isNaN(v)?null:v;};
+const step=(cls,title,body,cite)=>`<div class="step ${cls}"><b>${title}</b>${body}${cite?`<span class="cite">${cite}</span>`:''}</div>`;
+const CITE=s=>`[${C.src} · ${s}]`;
+
+/* ---------- Nav / theme / net ---------- */
+document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>{
+  document.querySelectorAll('nav button').forEach(x=>x.classList.remove('on'));b.classList.add('on');
+  document.querySelectorAll('section.page').forEach(s=>s.classList.remove('on'));$('p-'+b.dataset.p).classList.add('on');
+  if(b.dataset.p==='log')renderLog();
+});
+$('themeBtn').onclick=()=>{const r=document.documentElement;const nt=r.getAttribute('data-theme')==='night'?'':'night';
+  if(nt)r.setAttribute('data-theme',nt);else r.removeAttribute('data-theme');try{localStorage.setItem('vl-theme',nt);}catch(e){}};
+function net(){$('net').textContent=navigator.onLine?'online · no requests':'offline · OK';}
+addEventListener('online',net);addEventListener('offline',net);net();
+$('env').onchange=()=>{const sw=$('env').value==='swine';$('wtWrap').style.display=sw?'':'none';$('htWrap').style.display=sw?'none':'';$('sexWrap').style.display=sw?'none':'';};
+
+/* ---------- 1 Setup ---------- */
+$('setupBtn').onclick=()=>{
+  const env=$('env').value;let html='';let kg,label;
+  if(env==='swine'){
+    kg=n('wt');if(!kg){$('setupOut').innerHTML=step('crit','Enter actual body weight','');return;}
+    label=`Actual weight ${kg.toFixed(1)} kg (PBW formula is for adult humans and is not applied)`;
+    html+=step('warn','Research default, not a guideline',`Swine VT 6–8 mL/kg actual weight, PEEP 5 cmH₂O, rate 12–20/min, FiO₂ titrated to study target. Edit per protocol.<span class="tag local">LOCAL</span>`);
+    html+=step('','VT 8 mL/kg → 6 mL/kg',`${(kg*8).toFixed(0)} mL → ${(kg*6).toFixed(0)} mL`);
+  } else {
+    const ht=n('ht');if(!ht){$('setupOut').innerHTML=step('crit','Enter height','');return;}
+    kg=C.pbw($('sex').value,ht);label=`PBW ${kg.toFixed(1)} kg`;
+    html+=step('','Predicted body weight',`${label}<br><span class="kv">${$('sex').value==='m'?'50':'45.5'} + 2.3 × (height in − 60)</span>`,CITE('Part I §1'));
+    html+=step('','Mode',`${$('mode').value} — any mode is acceptable.`,CITE('Part I §2'));
+    html+=step('','Initial VT 8 mL/kg PBW',`<span class="kv">${(kg*8).toFixed(0)} mL</span>`,CITE('Part I §3'));
+    html+=step('','Reduce VT 1 mL/kg every ≤ 2 h to 6 mL/kg',`<span class="kv">7 mL/kg = ${(kg*7).toFixed(0)} mL → 6 mL/kg = ${(kg*6).toFixed(0)} mL</span> (4 mL/kg floor = ${(kg*4).toFixed(0)} mL)`,CITE('Part I §4'));
+    html+=step('','Rate',`Set to approximate baseline minute ventilation; do not exceed 35/min.`,CITE('Part I §5'));
+    html+=step('','PEEP / FiO₂',`Start PEEP 5 cmH₂O minimum; choose FiO₂ from the table to reach PaO₂ 55–80 mmHg or SpO₂ 88–95 %.`,CITE('Oxygenation goal'));
+    html+=step('','Then',`Adjust VT and rate to the pH and plateau goals (tab 2). Check Pplat with a 0.5 s pause within 4 h and after every VT/PEEP change.`,CITE('Part I §6; Plateau goal'));
+    if(env==='transport')html+=step('warn','Transport / PFC',`Same lung-protective targets. Transport ventilator limits (max PEEP, FiO₂ options, battery) are device-specific and not encoded in v0.1.<span class="tag local">LOCAL</span>`);
+  }
+  $('setupOut').innerHTML=html;
+  $('aVt').value=6;$('aPeep').value=5;$('aFio2').value=0.4;
+  state.pbw=kg;state.env=env;log('SETUP',`${label}; env ${env}; mode ${$('mode').value}`);
+};
+
+/* ---------- 2 Adjust engine ---------- */
+function nearest(tbl,fio2,peep){let bi=0,bd=1e9;tbl.forEach((p,i)=>{const d=Math.abs(p[0]-fio2)*20+Math.abs(p[1]-peep);if(d<bd){bd=d;bi=i;}});return bi;}
+function renderTbl(id,tbl,cur){let h='<div class="tw"><table><tr><th>FiO₂</th>'+tbl.map(p=>`<th>${p[0].toFixed(1)}</th>`).join('')+'</tr><tr><th>PEEP</th>'+tbl.map((p,i)=>`<td class="${i===cur?'cur':''}">${p[1]}</td>`).join('')+'</tr></table></div>';$(id).innerHTML=h;}
+renderTbl('tblLo',C.tblLo,-1);renderTbl('tblHi',C.tblHi,-1);
+
+$('adjBtn').onclick=()=>{
+  const vt=n('aVt'),rr=n('aRr'),peep=n('aPeep'),fio2=n('aFio2'),pplat=n('aPplat'),ph=n('aPh'),pco2=n('aPco2'),po2=n('aPo2'),spo2=n('aSpo2'),stack=$('aStack').value==='1';
+  const tbl=$('aTable').value==='lo'?C.tblLo:C.tblHi;const tname=$('aTable').value==='lo'?'Lower PEEP/higher FiO₂':'Higher PEEP/lower FiO₂';
+  let html='';const crit=[];
+  if(ph!==null&&ph<7.15)crit.push('pH < 7.15');if(pplat!==null&&pplat>30)crit.push('Pplat > 30');if(spo2!==null&&spo2<88)crit.push('SpO₂ < 88 %');if(po2!==null&&po2<55)crit.push('PaO₂ < 55');
+  if(crit.length)html+=`<div class="banner">Out of goal: ${crit.join(' · ')}</div>`;
+
+  /* Oxygenation */
+  if(fio2!==null&&peep!==null){
+    const i=nearest(tbl,fio2,peep);renderTbl('tblLo',C.tblLo,$('aTable').value==='lo'?i:-1);renderTbl('tblHi',C.tblHi,$('aTable').value==='hi'?i:-1);
+    const low=(po2!==null&&po2<55)||(spo2!==null&&spo2<88);const high=(po2!==null&&po2>80)||(spo2!==null&&spo2>95);
+    if(low){
+      if(i>=tbl.length-1)html+=step('crit','Oxygenation below goal at the top of the table',`Already at FiO₂ 1.0 / PEEP 24. The card has no further step; rescue measures are outside this protocol and not encoded here.`,CITE('PEEP-FiO₂ table'));
+      else{const nx=tbl[i+1];html+=step('crit','Oxygenation below goal → step UP the table',`${tname}: FiO₂ ${fio2} / PEEP ${peep} → <span class="kv">FiO₂ ${nx[0].toFixed(1)} / PEEP ${nx[1]}</span>`,CITE('Oxygenation goal; PEEP-FiO₂ table'));}
+    }
+    else if(high){
+      if(i<=0)html+=step('warn','Oxygenation above goal at the bottom of the table','Already at FiO₂ 0.3 / PEEP 5 — nothing lower on the card. Consider the weaning screen (tab 5).',CITE('PEEP-FiO₂ table; Part II A'));
+      else{const nx=tbl[i-1];html+=step('warn','Oxygenation above goal → step DOWN the table',`${tname}: FiO₂ ${fio2} / PEEP ${peep} → <span class="kv">FiO₂ ${nx[0].toFixed(1)} / PEEP ${nx[1]}</span>`,CITE('Oxygenation goal; PEEP-FiO₂ table'));}
+    }
+    else if(po2!==null||spo2!==null)html+=step('ok','Oxygenation at goal','PaO₂ 55–80 or SpO₂ 88–95 %. Hold.',CITE('Oxygenation goal'));
+    if(peep<5)html+=step('warn','PEEP below minimum','Minimum PEEP is 5 cmH₂O.',CITE('Oxygenation goal'));
+  }
+
+  /* Plateau */
+  if(pplat!==null&&vt!==null){
+    if(pplat>30){
+      if(vt>4)html+=step('crit','Pplat > 30 → decrease VT 1 mL/kg',`VT ${vt} → <span class="kv">${vt-1} mL/kg</span> (minimum 4 mL/kg). Re-check Pplat after the change.`,CITE('Plateau goal'));
+      else html+=step('crit','Pplat > 30 at VT 4 mL/kg','VT is already at the 4 mL/kg floor. Pplat > 30 is permitted only when pH < 7.15 drives VT up (see pH rules).',CITE('Plateau goal; pH goal'));
+    } else if(pplat<25&&vt<6){html+=step('warn','Pplat < 25 and VT < 6 → increase VT 1 mL/kg',`VT ${vt} → <span class="kv">${vt+1} mL/kg</span>, until Pplat > 25 or VT = 6.`,CITE('Plateau goal'));}
+    else if(pplat<30&&stack&&vt<8){html+=step('warn','Pplat < 30 with stacking/dyssynchrony → VT may rise 1 mL/kg',`VT ${vt} → <span class="kv">${vt+1} mL/kg</span> (cap 7–8 mL/kg), as long as Pplat stays ≤ 30.`,CITE('Plateau goal'));}
+    else html+=step('ok','Plateau pressure at goal',`Pplat ${pplat} ≤ 30. Re-check with 0.5 s pause q4h and after every VT/PEEP change.`,CITE('Plateau goal'));
+  }
+
+  /* pH */
+  if(ph!==null){
+    if(ph<7.15){
+      let b=`Increase rate to <span class="kv">35/min</span>.`;
+      if(rr!==null&&rr>=35)b=`Rate already 35. Increase VT 1 mL/kg steps${vt!==null?` (${vt} → ${vt+1} mL/kg)`:''} until pH > 7.15; Pplat 30 may be exceeded. NaHCO₃ may be given.`;
+      html+=step('crit','Acidosis pH < 7.15',b,CITE('pH goal'));
+    } else if(ph<7.30){
+      const capped=pco2!==null&&pco2<25;
+      html+=step('warn','Acidosis pH 7.15–7.30 → increase rate',capped?`PaCO₂ already < 25 — rate increase stops here. Reassess cause (metabolic component).`:`Increase rate${rr!==null?` from ${rr}`:''} until pH > 7.30 or PaCO₂ < 25 (max 35/min).`,CITE('pH goal'));
+    } else if(ph>7.45){html+=step('warn','Alkalosis pH > 7.45','Decrease ventilator rate if possible.',CITE('pH goal'));}
+    else html+=step('ok','pH at goal','7.30–7.45. Hold.',CITE('pH goal'));
+  }
+  if(rr!==null&&rr>35)html+=step('crit','Rate exceeds 35/min','Protocol maximum rate is 35.',CITE('Part I §5'));
+  const anyMeas=[pplat,ph,po2,spo2].some(v=>v!==null);
+  if(!anyMeas){$('adjOut').innerHTML=step('warn','Enter at least one measurement','Plateau pressure, pH, PaO₂, or SpO₂ — plus the current settings they apply to.');state.lastAdj='';return;}
+  html+=step('','I:E','Keep inspiratory time shorter than expiratory time.',CITE('I:E goal'));
+  $('adjOut').innerHTML=html;
+  state.lastAdj=`VT ${vt??'-'} RR ${rr??'-'} PEEP ${peep??'-'} FiO₂ ${fio2??'-'} | Pplat ${pplat??'-'} pH ${ph??'-'} PaCO₂ ${pco2??'-'} PaO₂ ${po2??'-'} SpO₂ ${spo2??'-'} → `+
+    [...$('adjOut').querySelectorAll('.step')].map(s=>s.querySelector('b').textContent).join(' · ');
+};
+$('adjLogBtn').onclick=()=>{if(state.lastAdj)log('ADJUST',state.lastAdj);};
+
+/* ---------- 3 ABG ---------- */
+$('abgBtn').onclick=()=>{
+  const ph=n('bPh'),pco2=n('bPco2'),hco3=n('bHco3'),po2=n('bPo2'),fio2=n('bFio2');let html='';
+  if(ph===null||pco2===null){$('abgOut').innerHTML=step('crit','Need pH and PaCO₂','');return;}
+  let prim='';
+  if(ph<7.35){prim=pco2>45?'Respiratory acidosis (pH low, PaCO₂ high)':(hco3!==null&&hco3<22?'Metabolic acidosis (pH low, HCO₃⁻ low)':'Acidemia — PaCO₂ not elevated; check HCO₃⁻ for metabolic component');}
+  else if(ph>7.45){prim=pco2<35?'Respiratory alkalosis (pH high, PaCO₂ low)':(hco3!==null&&hco3>26?'Metabolic alkalosis (pH high, HCO₃⁻ high)':'Alkalemia — PaCO₂ not low; check HCO₃⁻');}
+  else prim='pH in normal range (7.35–7.45)'+((pco2>45||pco2<35)?' with abnormal PaCO₂ — compensated or mixed; interpret with HCO₃⁻':'');
+  html+=step('','Primary pattern',prim+'<span class="tag local">LOCAL</span>');
+  if(po2!==null&&fio2!==null&&fio2>0)html+=step('','P/F ratio',`<span class="kv">${(po2/fio2).toFixed(0)}</span>${po2/fio2<=300?' — meets ARDS inclusion threshold (≤ 300)':''}`,CITE('Inclusion §2'));
+  if(ph<7.15)html+=step('crit','Ventilator response','Rate to 35; if still < 7.15, VT up 1 mL/kg steps (Pplat 30 may be exceeded); NaHCO₃ may be given.',CITE('pH goal'));
+  else if(ph<7.30)html+=step('warn','Ventilator response','Increase rate until pH > 7.30 or PaCO₂ < 25 (max 35).',CITE('pH goal'));
+  else if(ph>7.45)html+=step('warn','Ventilator response','Decrease rate if possible.',CITE('pH goal'));
+  else html+=step('ok','Ventilator response','pH within 7.30–7.45 goal.',CITE('pH goal'));
+  if(po2!==null){if(po2<55)html+=step('crit','Oxygenation','PaO₂ < 55 — step up the PEEP/FiO₂ table (tab 2).',CITE('Oxygenation goal'));else if(po2>80)html+=step('warn','Oxygenation','PaO₂ > 80 — step down the table.',CITE('Oxygenation goal'));}
+  $('abgOut').innerHTML=html;log('ABG',`pH ${ph} PaCO₂ ${pco2} HCO₃ ${hco3??'-'} PaO₂ ${po2??'-'} FiO₂ ${fio2??'-'} → ${prim}`);
+};
+
+/* ---------- 4 Alarm ---------- */
+$('alBtn').onclick=()=>{
+  const pk=n('alPeak'),pl=n('alPplat');if(pk===null||pl===null){$('alOut').innerHTML=step('crit','Enter peak and plateau','');return;}
+  if(pl>pk){$('alOut').innerHTML=step('crit','Plateau cannot exceed peak','Re-measure: plateau is read during a 0.5 s inspiratory pause.');return;}
+  const d=pk-pl;let html='';
+  if(pl>30)html+=step('crit','Plateau > 30 — compliance problem',`Lung/chest wall: pneumothorax, mainstem intubation, abdominal compartment, worsening ARDS, auto-PEEP. Then apply VT reduction rule (tab 2).<span class="tag local">LOCAL</span>`,CITE('Plateau goal'));
+  if(d>=15)html+=step('warn','Peak − plateau ≥ 15 — resistance problem',`Tube kink/obstruction, secretions, bronchospasm, biting, circuit. Suction and check the tube first.<span class="tag local">LOCAL</span>`);
+  if(pl<=30&&d<15)html+=step('ok','Pressures acceptable',`Peak ${pk}, plateau ${pl}, difference ${d}.`);
+  $('alOut').innerHTML=html;log('ALARM',`Peak ${pk} Pplat ${pl}`);
+};
+
+/* ---------- 5 Wean ---------- */
+$('wScreenBtn').onclick=()=>{
+  const f=n('wFio2'),p=n('wPeep');if(f===null||p===null){$('wScreenOut').innerHTML=step('crit','Enter FiO₂ and PEEP','');return;}
+  const fail=[];
+  if(!((f<=0.40&&p<=8)||(f<0.50&&p<5)))fail.push('FiO₂ ≤ 0.40 and PEEP ≤ 8 (or FiO₂ < 0.50 and PEEP < 5)');
+  if($('wPrev').value==='0')fail.push('PEEP and FiO₂ ≤ previous day');
+  if($('wEffort').value==='0')fail.push('Acceptable spontaneous breathing effort');
+  if($('wSbp').value==='0')fail.push('SBP ≥ 90 mmHg without vasopressors');
+  if($('wNmb').value==='1')fail.push('No neuromuscular blockade');
+  let html=fail.length?step('warn','Not ready for SBT today','Unmet: <ul><li>'+fail.join('</li><li>')+'</li></ul>Re-screen tomorrow.',CITE('Part II A')):
+    step('ok','SBT criteria met','Proceed to a trial of up to 120 min on T-piece, trach collar, or CPAP ≤ 5 with PS < 5; FiO₂ < 0.5, PEEP < 5. (Card also requires ≥ 12 h since enrollment.)',CITE('Part II A–B'));
+  $('wScreenOut').innerHTML=html;log('SBT SCREEN',fail.length?'FAIL: '+fail.join('; '):'PASS');
+};
+$('wTolBtn').onclick=()=>{
+  const spo2=n('tSpo2'),po2=n('tPo2'),vt=n('tVt'),rr=n('tRr'),ph=n('tPh'),min=n('tMin');
+  const dist=document.querySelectorAll('.dist:checked').length;const fail=[];
+  if(spo2===null&&po2===null){$('wTolOut').innerHTML=step('warn','Enter SpO₂ or PaO₂','Oxygenation is a required tolerance criterion.');return;}
+  if(!((spo2!==null&&spo2>=90)||(po2!==null&&po2>=60)))fail.push('SpO₂ ≥ 90 % and/or PaO₂ ≥ 60');
+  if(vt!==null&&vt<4)fail.push('Spontaneous VT ≥ 4 mL/kg PBW');
+  if(rr!==null&&rr>35)fail.push('RR ≤ 35/min');
+  if(ph!==null&&ph<7.30)fail.push('pH ≥ 7.30');
+  if(dist>=2)fail.push(`No respiratory distress (${dist} signs present)`);
+  let html;
+  if(fail.length)html=step('crit','SBT not tolerated → resume pre-trial settings','Failed: <ul><li>'+fail.join('</li><li>')+'</li></ul>',CITE('Part II B §2–4'));
+  else if(min!==null&&min>=30)html=step('ok','Tolerated ≥ 30 min → consider extubation','All tolerance criteria met.',CITE('Part II B §3'));
+  else html=step('warn','Tolerating so far','Continue assessment; consider extubation once tolerated ≥ 30 min (trial up to 120 min).',CITE('Part II B §2–3'));
+  $('wTolOut').innerHTML=html;log('SBT',fail.length?'FAIL: '+fail.join('; '):`PASS ${min??'?'} min`);
+};
+
+/* ---------- Log ---------- */
+const state={pbw:null,env:null,lastAdj:''};
+function loadLog(){try{return JSON.parse(localStorage.getItem('vl-log')||'[]');}catch(e){return [];}}
+function log(k,t){const L=loadLog();L.push({t:new Date().toISOString(),k,m:t});try{localStorage.setItem('vl-log',JSON.stringify(L.slice(-200)));}catch(e){}}
+function renderLog(){const L=loadLog();$('logOut').innerHTML=L.length?L.map(e=>`<div class="step"><b>${e.t.replace('T',' ').slice(0,19)} · ${e.k}</b>${e.m}</div>`).join('')+`<div class="disc">VENTLINE v0.1.1 · source: ${C.src} · decision-support aid, not a medical record · clinical judgment governs</div>`:'<p class="muted">Empty.</p>';}
+$('copyLog').onclick=()=>{const L=loadLog();const txt=L.map(e=>`${e.t} ${e.k}: ${e.m}`).join('\n')+`\n-- VENTLINE v0.1.1 · ${C.src} · decision-support aid, not a medical record`;navigator.clipboard?.writeText(txt);};
+$('printLog').onclick=()=>window.print();
+$('clearLog').onclick=()=>{try{localStorage.removeItem('vl-log');}catch(e){}renderLog();};
+if('serviceWorker' in navigator&&location.protocol.startsWith('http')){addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(()=>{}));}
+</script>
+</body>
+</html>
