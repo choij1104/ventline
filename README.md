@@ -1,7 +1,7 @@
 # VENTLINE
 
 **Offline mechanical ventilation decision support.**
-Version 0.1.1 · Prototype build 2026-10-14
+Version 0.1.2 · Prototype build 2026-10-14
 
 A single-file, browser-resident decision support tool for initiating, adjusting, troubleshooting, and weaning mechanical ventilation. It runs entirely in the browser with no backend, no external requests, and no data transmission — built for the ICU and emergency department, transport and prolonged field care, preclinical research ventilation, and bedside teaching.
 
@@ -59,6 +59,8 @@ LICENSE                copyright and terms
 Pediatric settings, pressure-support step-down schedule, prone positioning and other rescue measures, neuromuscular blockade dosing, transport-ventilator model limits, and PFC-specific ventilation guidance. Each will be added after its primary source is read.
 
 ## Changelog
+
+**v0.1.2** — 2026-10-14. Header network badge no longer looks like a button: a plain dot + "no network use", dot turns green when offline. No rule changed.
 
 **v0.1.1** — 2026-10-14. Fifteen scripted user scenarios on a phone-width viewport. PEEP/FiO₂ tables scroll inside their card instead of widening the page; empty-input guards on Adjust and SBT tolerance; table-edge messages (top: no further card step; bottom: go to the weaning screen); plateau-greater-than-peak guard; log entries record inputs and step titles. No rule changed.
 

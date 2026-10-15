@@ -11,9 +11,9 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="VENTLINE">
 <meta name="description" content="Offline mechanical ventilation decision support. Deterministic, citation-linked rule engine built on the NIH NHLBI ARDS Network protocol card. No network calls, no data transmission.">
-<title>VENTLINE v0.1.1 — Offline Ventilator Decision Support</title>
+<title>VENTLINE v0.1.2 — Offline Ventilator Decision Support</title>
 <!--
-  VENTLINE v0.1.1 — Offline Mechanical Ventilation Decision Support
+  VENTLINE v0.1.2 — Offline Mechanical Ventilation Decision Support
   © 2026 HAKOYA LLC · Auravyx Systems
   Prototype build 2026-10-14. Single file. No network requests at runtime.
 
@@ -42,7 +42,7 @@ header h1{font-size:17px;margin:0;letter-spacing:.04em}
 header .v{font-size:12px;opacity:.85}
 header .sp{flex:1}
 header button{background:transparent;color:inherit;border:1px solid rgba(255,255,255,.5);border-radius:8px;padding:6px 10px;font-size:13px;min-height:36px}
-.net{font-size:12px;padding:3px 8px;border-radius:999px;background:rgba(0,0,0,.25)}
+.net{font-size:12px;opacity:.9;white-space:nowrap}.net::before{content:'';display:inline-block;width:8px;height:8px;border-radius:50%;background:#9aa5b8;margin-right:6px;vertical-align:middle}.net.off::before{background:#4fd27a}
 nav{display:flex;overflow-x:auto;gap:4px;padding:8px 12px;background:var(--panel);border-bottom:1px solid var(--line);position:sticky;top:56px;z-index:4}
 nav button{flex:0 0 auto;border:1px solid var(--line);background:var(--chip);color:var(--ink);border-radius:999px;padding:8px 14px;font-size:14px;min-height:42px}
 nav button.on{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
@@ -81,9 +81,9 @@ ul.chk input{width:auto;min-height:0;margin-right:10px;transform:scale(1.3)}
 </head>
 <body>
 <header>
-  <h1>VENTLINE</h1><span class="v">v0.1.1 · offline</span>
+  <h1>VENTLINE</h1><span class="v">v0.1.2 · offline</span>
   <span class="sp"></span>
-  <span class="net" id="net">checking…</span>
+  <span class="net" id="net">no network use</span>
   <button id="themeBtn" type="button">Night</button>
 </header>
 <nav>
@@ -253,7 +253,7 @@ ul.chk input{width:auto;min-height:0;margin-right:10px;transform:scale(1.3)}
 <!-- ============ ABOUT ============ -->
 <section class="page" id="p-about">
   <div class="card">
-    <h2>VENTLINE v0.1.1 — prototype</h2>
+    <h2>VENTLINE v0.1.2 — prototype</h2>
     <p>Offline, deterministic, citation-linked mechanical ventilation decision support. Same inputs always give the same output. Every engine step carries its source section.</p>
     <h3>Source</h3>
     <p class="kv">[ARDSnet] NIH NHLBI ARDS Clinical Network. Mechanical Ventilation Protocol Summary (protocol card, rev. 07/2008).</p>
@@ -288,7 +288,7 @@ document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>{
 });
 $('themeBtn').onclick=()=>{const r=document.documentElement;const nt=r.getAttribute('data-theme')==='night'?'':'night';
   if(nt)r.setAttribute('data-theme',nt);else r.removeAttribute('data-theme');try{localStorage.setItem('vl-theme',nt);}catch(e){}};
-function net(){$('net').textContent=navigator.onLine?'online · no requests':'offline · OK';}
+function net(){const e=$('net');e.textContent='no network use';e.classList.toggle('off',!navigator.onLine);e.title=navigator.onLine?'Online — this app still sends nothing':'Offline — fully functional';}
 addEventListener('online',net);addEventListener('offline',net);net();
 $('env').onchange=()=>{const sw=$('env').value==='swine';$('wtWrap').style.display=sw?'':'none';$('htWrap').style.display=sw?'none':'';$('sexWrap').style.display=sw?'none':'';};
 
@@ -439,8 +439,8 @@ $('wTolBtn').onclick=()=>{
 const state={pbw:null,env:null,lastAdj:''};
 function loadLog(){try{return JSON.parse(localStorage.getItem('vl-log')||'[]');}catch(e){return [];}}
 function log(k,t){const L=loadLog();L.push({t:new Date().toISOString(),k,m:t});try{localStorage.setItem('vl-log',JSON.stringify(L.slice(-200)));}catch(e){}}
-function renderLog(){const L=loadLog();$('logOut').innerHTML=L.length?L.map(e=>`<div class="step"><b>${e.t.replace('T',' ').slice(0,19)} · ${e.k}</b>${e.m}</div>`).join('')+`<div class="disc">VENTLINE v0.1.1 · source: ${C.src} · decision-support aid, not a medical record · clinical judgment governs</div>`:'<p class="muted">Empty.</p>';}
-$('copyLog').onclick=()=>{const L=loadLog();const txt=L.map(e=>`${e.t} ${e.k}: ${e.m}`).join('\n')+`\n-- VENTLINE v0.1.1 · ${C.src} · decision-support aid, not a medical record`;navigator.clipboard?.writeText(txt);};
+function renderLog(){const L=loadLog();$('logOut').innerHTML=L.length?L.map(e=>`<div class="step"><b>${e.t.replace('T',' ').slice(0,19)} · ${e.k}</b>${e.m}</div>`).join('')+`<div class="disc">VENTLINE v0.1.2 · source: ${C.src} · decision-support aid, not a medical record · clinical judgment governs</div>`:'<p class="muted">Empty.</p>';}
+$('copyLog').onclick=()=>{const L=loadLog();const txt=L.map(e=>`${e.t} ${e.k}: ${e.m}`).join('\n')+`\n-- VENTLINE v0.1.2 · ${C.src} · decision-support aid, not a medical record`;navigator.clipboard?.writeText(txt);};
 $('printLog').onclick=()=>window.print();
 $('clearLog').onclick=()=>{try{localStorage.removeItem('vl-log');}catch(e){}renderLog();};
 if('serviceWorker' in navigator&&location.protocol.startsWith('http')){addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(()=>{}));}
