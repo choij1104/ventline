@@ -1,76 +1,76 @@
 # VENTLINE
 
-**Offline mechanical ventilation decision support.**
-Version 0.1.2 · Prototype build 2026-10-14
+**Offline mechanical ventilation decision support for paramedics and critical care transport — and a research platform for closed-loop ventilator control.**
+Version 0.2.0 · Build 2026-10-24
 
-A single-file, browser-resident decision support tool for initiating, adjusting, troubleshooting, and weaning mechanical ventilation. It runs entirely in the browser with no backend, no external requests, and no data transmission — built for the ICU and emergency department, transport and prolonged field care, preclinical research ventilation, and bedside teaching.
+A single-file, browser-resident decision engine for starting, adjusting, troubleshooting, and weaning mechanical ventilation. No backend, no external requests, no data transmission. Primary user: paramedics who run transport ventilators in ground, air, and prolonged field care.
 
 ---
 
-## What it does
+## Engine
 
-Five linked steps, each producing the next action with its source section:
+```
+patient state  ->  rules (modules)  ->  guardrails  ->  one next step  ->  timeline
+```
 
-1. **Setup** — predicted body weight, initial tidal volume (8 → 6 mL/kg PBW schedule with the 4 mL/kg floor), rate ceiling, minimum PEEP, oxygenation target. Environment selector: ICU/ED, transport/PFC, preclinical swine (actual weight), education.
-2. **Adjust** — enter current settings plus plateau pressure, pH, PaCO₂, PaO₂/SpO₂ and get the next single step: PEEP/FiO₂ table position (both the lower-PEEP and higher-PEEP tables), plateau pressure rules, pH rules, rate ceiling. Out-of-goal values are flagged in a banner.
-3. **ABG** — primary acid–base pattern, P/F ratio against the ARDS inclusion threshold, and the ventilator response the pH goal calls for.
-4. **Alarm** — DOPES checklist for acute deterioration; peak-versus-plateau triage separating resistance from compliance problems.
-5. **Wean** — daily spontaneous breathing trial screen (all five criteria), trial setup, tolerance assessment with the five distress signs, and the 30-minute / 120-minute decision points.
+- **Modules** register rules. v0.2 ships three: `SAFE` (always on), `CPG92`, `ARDS`. New modules (hemodynamics, sedation) plug into the same registry without changing the core.
+- **Every rule** has an ID (e.g. `CPG-ETCO2`, `ARDS-PPLAT`) and a source section shown in the UI and written to the log.
+- **Guardrails** clip any proposed change to the tighter of the protocol limit and the selected ventilator's range, and say so. Example: ARDSnet pH rule asks for rate 35; a CPG 92 transport vent ranges 10–30, so the step stops at 30 and is flagged.
+- **One next step** is shown with old → new values and Apply / Skip. Every check, applied change and skip is logged with the rule IDs that fired.
+- **CO₂ settling hold** — after a rate or VT change, ventilation rules wait 15 minutes (LOCAL) unless the situation is critical. Found by the simulator: without it, corrections stack and PaCO₂ overshoots.
+- **PaCO₂–EtCO₂ gap** — once a blood gas has both values, later EtCO₂ readings are read against that gap. Found by the simulator: in high dead space or low perfusion EtCO₂ can read normal while PaCO₂ is ~70.
 
-A device-local session log with Copy and Print carries inputs, outputs, citations, and the disclaimer.
+## Screens
 
-## Source
+| Screen | What it does |
+|---|---|
+| Now | Ventilator front-panel readout, readings in, one next step out, all findings, manual settings, PEEP/FiO₂ tables |
+| Setup | Height/sex (or swine actual weight), protocol (CPG 92 or ARDSnet), ventilator (Impact 754, Zoll EMV+ 731, Hamilton-T1, SAVe II, Ventway Sparrow, generic, ICU), conditions; initial settings |
+| Trouble | Airway compromise, DOPE, high- and low-pressure alarm lists, peak/plateau split, hypoxia steps, EtCO₂ work-up |
+| ABG | Pattern, P/F, metabolic caution, ARDSnet response; send to Now |
+| Wean | ARDSnet daily SBT screen and tolerance |
+| Tools | Minute ventilation, Ti/Te, driving pressure, compliance, S/F, P/F, PaCO₂–EtCO₂, alarm limits, O₂ cylinder duration, VT table |
+| Simulator | Single-compartment lung model, 7 scenarios, injectable events, closed-loop mode, trend charts, scenario harness with JSON/CSV export |
+| Timeline | Trends and the full audit log; JSON/CSV export |
 
-Every engine rule cites a section of one document:
+## Sources
 
-> NIH NHLBI ARDS Clinical Network. *Mechanical Ventilation Protocol Summary* (protocol card, revised 07/2008).
+- **[CPG92]** Joint Trauma System. *Mechanical Ventilation Basics.* CPG ID 92. 09 Apr 2025 (supersedes 27 Dec 2021). Initial settings, troubleshooting, O₂ requirement, Appendices D–H.
+- **[ARDSnet]** NIH NHLBI ARDS Clinical Network. *Mechanical Ventilation Protocol Summary* (protocol card, rev. 07/2008).
 
-Content not traceable to the card is tagged **LOCAL** in the interface and in the code: swine weight-based defaults, acid–base classification, the DOPES mnemonic, and peak/plateau triage. These are editable defaults, not guideline content. Nothing is added to the engine without its primary source being read first.
+Where they disagree, the app uses the selected protocol and shows both: body weight (CPG 92: 2.2 kg/in, female base 45 kg; ARDSnet: 2.3 kg/in, female 45.5 kg), rate ceiling (30 vs 35), PEEP ceiling (20 vs 24).
 
-## Design constraints
+Tags: **LOCAL** = standard physiology or an editable default, not guideline content. **SIM** = simulator assumption, illustrative only. Nothing enters the engine before its primary source is read.
 
-1. **Offline first.** One HTML file. Save it, open it, use it with the radio off.
-2. **No transmission.** No analytics, no fonts from a CDN, no fetch calls. The header shows network state so the operator can verify.
-3. **Deterministic.** A rule base, not a language model. Same inputs, same output, every output traceable.
-4. **One step at a time.** The engine returns the next protocol step, not a plan — the clinician decides and re-measures.
-5. **Legible under load.** 15 px base type, 44 px touch targets, night theme for dark environments.
+## Simulator (research use)
+
+Equation of motion (Pplat, Ppeak, auto-PEEP from R·C and expiratory time), alveolar gas equation, CO₂ steady state from alveolar ventilation, shunt mixing with PEEP recruitment, Severinghaus saturation, Henderson–Hasselbalch, a simple PEEP–cardiac output effect. Scenarios: healthy lungs, moderate and severe ARDS, severe asthma, hemorrhagic shock, metabolic acidosis, smoke inhalation. Events: mainstem, tension pneumothorax, tube obstruction, bronchospasm, disconnect, bleeding.
+
+All parameters are illustrative assumptions, not validated against patient or animal data. Harness numbers describe engine behavior inside the model, not clinical performance.
 
 ## Use
 
-Open `index.html` in any modern browser. No install, no build step, no dependencies.
+Open `index.html` in any modern browser. Served over https (GitHub Pages) it installs to a phone home screen and then opens with no network.
 
-Served over https (including GitHub Pages) the app registers a service worker and can be added to a phone home screen; it then opens with no network at all. The service worker caches only this app's own files.
+## Not in v0.2
 
-## Repository layout
-
-```
-index.html             complete application (UI + rule engine)
-manifest.webmanifest   home-screen install metadata
-sw.js                  service worker — caches this app's own files only
-icon-192.png           app icons
-icon-512.png
-README.md              this file
-DISCLAIMER.md          intended use and limitations — read before clinical use
-LICENSE                copyright and terms
-```
-
-## Not in v0.1
-
-Pediatric settings, pressure-support step-down schedule, prone positioning and other rescue measures, neuromuscular blockade dosing, transport-ventilator model limits, and PFC-specific ventilation guidance. Each will be added after its primary source is read.
+Pediatric settings; sedation and paralytic dosing (CPG 92 refers to the JTS PFC Analgesia and Sedation CPG); prone positioning; ECMO; pressure-support step-down; hemodynamic module. Each waits for its primary source.
 
 ## Changelog
 
-**v0.1.2** — 2026-10-14. Header network badge no longer looks like a button: a plain dot + "no network use", dot turns green when offline. No rule changed.
+**v0.2.0** — 2026-10-24. Research-platform rebuild. Modular rule engine with rule IDs, guardrails (protocol ∩ device), JTS CPG 92 content and five transport-ventilator profiles, patient timeline with trends, single-compartment simulator with closed-loop mode and scenario harness, JSON/CSV export, PaCO₂–EtCO₂ gap tracking, CO₂ settling hold, off-table PEEP/FiO₂ stepping one level at a time. All v0.1 functions kept (setup, PEEP/FiO₂ tables, ABG, alarm triage, SBT screen and tolerance, log). v0.1.2 preserved on branch `backup/v0.1.2-pre-v0.2`.
 
-**v0.1.1** — 2026-10-14. Fifteen scripted user scenarios on a phone-width viewport. PEEP/FiO₂ tables scroll inside their card instead of widening the page; empty-input guards on Adjust and SBT tolerance; table-edge messages (top: no further card step; bottom: go to the weaning screen); plateau-greater-than-peak guard; log entries record inputs and step titles. No rule changed.
+**v0.1.2** — 2026-10-14. Header network badge as a status dot. No rule changed.
 
-**v0.1.0** — 2026-10-14. First prototype: Setup, Adjust, ABG, Alarm, Wean, Log.
+**v0.1.1** — 2026-10-14. Fifteen scripted phone-width scenarios; table scrolling, input guards, table-edge messages, plateau > peak guard.
+
+**v0.1.0** — 2026-10-14. First prototype.
 
 ## Publisher
 
-HAKOYA LLC
+HAKOYA LLC · Auravyx Systems
 Selma, Texas
 
 ---
 
-See [DISCLAIMER.md](DISCLAIMER.md) — this software is a reference aid, not a substitute for clinical judgment, and is not an FDA-cleared medical device.
+See [DISCLAIMER.md](DISCLAIMER.md) — research and decision-support aid, not a substitute for clinical judgment, not an FDA-cleared medical device.
