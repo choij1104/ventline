@@ -1,7 +1,7 @@
 # VENTLINE
 
 **Offline mechanical ventilation decision support for paramedics and critical care transport — and a research platform for closed-loop ventilator control.**
-Version 0.3.1 · Build 2026-10-24
+Version 0.3.2 · Build 2026-10-24
 
 A single-file, browser-resident decision engine for starting, adjusting, troubleshooting, and weaning mechanical ventilation. No backend, no external requests, no data transmission. Primary user: paramedics who run transport ventilators in ground, air, and prolonged field care.
 
@@ -57,6 +57,8 @@ Open `index.html` in any modern browser. Served over https (GitHub Pages) it ins
 Pediatric settings; sedation and paralytic dosing (CPG 92 refers to the JTS PFC Analgesia and Sedation CPG); prone positioning; ECMO; pressure-support step-down; hemodynamic module. Each waits for its primary source.
 
 ## Changelog
+
+**v0.3.2** — 2026-10-24. CO₂ control: new CPG-ABG-FIRST prompt asks for an early blood gas while no PaCO₂–EtCO₂ gap is known; simulator delivers the first gas at 10 min. Cohort adds a pH ≥ 7.30 measure. 20-patient cohort (seed 2410): median time PaCO₂ 35–45 rose from 49 % to 67 %; rate see-saw 2 → 1 patient; 0 limit breaches; 6/6 emergencies detected.
 
 **v0.3.1** — 2026-10-24. Demo patient (simulated blast + smoke inhalation case, labeled DEMO) loads from the checklist screen. 20-patient virtual cohort (seeded, physiology varied, 30 % random emergencies) with summary and JSON export. Engine fixes found by the cohort: SAFE-REFRACT escalation when FiO₂ and PEEP are at the ceiling and the patient is still hypoxemic; no rate increase while breaths are stacking (CPG 92 air trapping) — lengthen exhalation instead.
 

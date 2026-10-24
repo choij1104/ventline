@@ -13,7 +13,7 @@
 <meta name="description" content="Offline mechanical ventilation decision support for paramedics and critical care transport. Deterministic, citation-linked rule engine (JTS CPG 92 + ARDSnet), patient timeline, and a research simulator. No network calls.">
 <title>VENTLINE</title>
 <!--
-  VENTLINE v0.3.1 — Offline Mechanical Ventilation Decision Support (research platform build)
+  VENTLINE v0.3.2 — Offline Mechanical Ventilation Decision Support (research platform build)
   © 2026 HAKOYA LLC · Auravyx Systems · Jae Hyek Choi, PhD, DVSc
   Build 2026-10-24. Single file. No network requests at runtime.
 
@@ -218,7 +218,7 @@ ol.tl{padding-left:20px}
 <body>
 <div class="head">
   <div class="bar">
-    <h1>VENTLINE</h1><span class="ver">v0.3.1</span>
+    <h1>VENTLINE</h1><span class="ver">v0.3.2</span>
     <span class="sp"></span>
     <span class="net" id="net">no network use</span>
     <button id="themeBtn" type="button">DAY</button>
@@ -544,7 +544,7 @@ ol.tl{padding-left:20px}
 
 <!-- ================= ABOUT ================= -->
 <section class="page" id="p-about">
-  <h2>VENTLINE v0.3.1</h2>
+  <h2>VENTLINE v0.3.2</h2>
   <p>Offline, deterministic, citation-linked ventilator decision support for paramedics who run mechanical ventilators in transport and prolonged field care. Same inputs give the same output. Every step names its source.</p>
   <h3>How the engine works</h3>
   <p>Patient state → rules → guardrails → one next step → timeline. Rules live in modules (CPG 92, ARDSnet, safety). Guardrails clip any proposed change to the tighter of the protocol limit and the ventilator's range, and say so when they do. New modules — hemodynamics, sedation — register into the same engine.</p>
@@ -578,7 +578,7 @@ const SRC={
   ARDS:'ARDSnet card 07/2008',
 };
 const cite=(s,sec)=>`[${SRC[s]||s} · ${sec}]`;
-const VERSION='0.3.1';
+const VERSION='0.3.2';
 
 /* =====================================================================
    1. KNOWLEDGE
@@ -861,6 +861,12 @@ register({id:'CPG92',name:'JTS CPG 92',rules:[
         'If this is lung injury, the ARDSnet goal is pH 7.30–7.45, not a normal PaCO₂ — get a pH and consider switching the protocol to ARDSnet. Request teleconsultation.',
       src:cite('CPG','Initial settings VT 4–8; Appendix J teleconsultation')+' '+cite('ARDS','Plateau and pH goals'),local:true,
       change:canVt?{vt:Math.round(Math.min(8,c.vtKg+1)*c.p.kg)}:null,auto:true};
+  }},
+  {id:'CPG-ABG-FIRST',run:c=>{
+    if(c.proto!=='cpg92'||S.gap||c.has('paco2')||!c.has('etco2'))return;
+    return{sev:'info',pri:-1,title:'Get a blood gas when you can',
+      body:'Until a blood gas sets the PaCO₂–EtCO₂ gap, EtCO₂ can read normal while PaCO₂ is high (shock, lung injury, large dead space). Titrate with the ABG; do not normalize breathing on EtCO₂ alone when the picture does not fit.',
+      src:cite('CPG','FiO₂ titration using ABG; metabolic acidosis: ABG before normalizing'),local:true};
   }},
   {id:'CPG-ALARMS',run:c=>{
     if(!c.has('ppeak')||c.m.ppeak<=c.s.peep+2)return;
@@ -1406,10 +1412,10 @@ function simStep(minutes,opts={}){
   const stats=opts.stats;
   for(let i=0;i<minutes;i++){
     simTick();
-    const withAbg=abgEvery>0&&SIM.min%abgEvery===0;
+    const withAbg=abgEvery>0&&(SIM.min===10||SIM.min%abgEvery===0);
     const {m,o}=simMeas(withAbg);
     SIM.rows.push({min:SIM.min,...m,...S.set,co:o.co,autoPeep:o.autoPeep});
-    if(stats){stats.n++;if(m.spo2>=88&&m.spo2<=95)stats.spIn++;if(m.spo2>=90)stats.sp90++;if(m.etco2>=35&&m.etco2<=45)stats.ecIn++;if(m.pplat<=30)stats.plIn++;if(m.spo2<85)stats.spLow++;if(SIM.x.paco2>=35&&SIM.x.paco2<=45)stats.pcIn++;stats.fio2Sum+=S.set.fio2;}
+    if(stats){stats.n++;if(m.spo2>=88&&m.spo2<=95)stats.spIn++;if(m.spo2>=90)stats.sp90++;if(m.etco2>=35&&m.etco2<=45)stats.ecIn++;if(m.pplat<=30)stats.plIn++;if(m.spo2<85)stats.spLow++;if(SIM.x.paco2>=35&&SIM.x.paco2<=45)stats.pcIn++;if(stats.phOk!=null&&6.1+Math.log10(SIM.p.hco3/(0.03*SIM.x.paco2))>=7.30)stats.phOk++;stats.fio2Sum+=S.set.fio2;}
     if(SIM.min%every===0){
       const res=evaluate(m);
       tlAdd({kind:'check',set:{...S.set},meas:stripMeas(m),rules:res.recs.map(r=>r.id),next:res.next?res.next.id:null,crit:res.recs.some(r=>r.sev==='crit')});
@@ -1472,7 +1478,7 @@ function runCohort(n,seed){
     sc.hypox=sc.shunt>=0.2;sc.shockC=sc.sbp<90;
     const evName=R()<0.3?EV[Math.floor(R()*EV.length)]:null,evAt=Math.round(U(30,90));
     simLoad(sc,true);
-    const st={n:0,pcIn:0,spIn:0,sp90:0,ecIn:0,plIn:0,spLow:0,changes:0,guards:0,fio2Sum:0};
+    const st={n:0,phOk:0,pcIn:0,spIn:0,sp90:0,ecIn:0,plIn:0,spLow:0,changes:0,guards:0,fio2Sum:0};
     let minSp=100,maxPl=0,maxRr=0,minVtKg=99,maxVtKg=0,rev=0,lastDir=0,detect=null,ruleBreach=0;
     for(let t=0;t<120;t++){
       if(evName&&SIM.min===evAt)SIM.ev[evName]=true;
@@ -1490,7 +1496,7 @@ function runCohort(n,seed){
       }
     }
     out.push({id:i+1,sex:sc.sex,inch:sc.inch,C:sc.C,R:sc.R,shunt:sc.shunt,vdAlv:sc.vdAlv,co:sc.co,sbp0:sc.sbp,hco3:sc.hco3,event:evName||'',eventAt:evName?evAt:'',
-      detectMin:evName?(detect??'missed'):'',pctSpO2_ge90:Math.round(100*st.sp90/st.n),pctPaCO2_35_45:Math.round(100*st.pcIn/st.n),pctPplat_le30:Math.round(100*st.plIn/st.n),
+      detectMin:evName?(detect??'missed'):'',pctSpO2_ge90:Math.round(100*st.sp90/st.n),pctPaCO2_35_45:Math.round(100*st.pcIn/st.n),pctPH_ge730:Math.round(100*st.phOk/st.n),pctPplat_le30:Math.round(100*st.plIn/st.n),
       minSpO2:minSp,minSpO2_below85:st.spLow,maxPplat:maxPl,changes:st.changes,guardHits:st.guards,rateReversals:rev,limitBreaches:ruleBreach,
       finalVT:S.set.vt,finalRR:S.set.rr,finalPEEP:S.set.peep,finalFiO2:S.set.fio2});
   }
@@ -1499,9 +1505,9 @@ function runCohort(n,seed){
   const col=k=>out.map(r=>r[k]);
   const evRuns=out.filter(r=>r.event);
   COHORT={app:'VENTLINE',version:VERSION,run:new Date().toISOString(),n,seed,
-    design:'DEMO case varied per patient (compliance, resistance, shunt, dead space, CO2 production, cardiac output, volume status, HCO3, SBP, sex, height); 30% get one random event at 30-90 min lasting 15 min; CPG 92 start; closed loop every 5 sim-min; ABG every 30 sim-min; 120 sim-min',
+    design:'DEMO case varied per patient (compliance, resistance, shunt, dead space, CO2 production, cardiac output, volume status, HCO3, SBP, sex, height); 30% get one random event at 30-90 min lasting 15 min; CPG 92 start; closed loop every 5 sim-min; first ABG at 10 sim-min then every 30; 120 sim-min',
     note:'Simulation only. Parameters are illustrative assumptions.',
-    summary:{medianPctSpO2_ge90:med(col('pctSpO2_ge90')),medianPctPaCO2_35_45:med(col('pctPaCO2_35_45')),medianPctPplat_le30:med(col('pctPplat_le30')),
+    summary:{medianPctSpO2_ge90:med(col('pctSpO2_ge90')),medianPctPaCO2_35_45:med(col('pctPaCO2_35_45')),medianPctPH_ge730:med(col('pctPH_ge730')),medianPctPplat_le30:med(col('pctPplat_le30')),
       lowestSpO2:Math.min(...col('minSpO2')),patientsWithSpO2below85:out.filter(r=>r.minSpO2_below85>0).length,
       limitBreaches:out.reduce((a,r)=>a+r.limitBreaches,0),patientsWithRateOscillation:out.filter(r=>r.rateReversals>=2).length,
       events:evRuns.length,eventsDetected:evRuns.filter(r=>r.detectMin!=='missed').length,medianDetectMin:evRuns.filter(r=>r.detectMin!=='missed').length?med(evRuns.filter(r=>r.detectMin!=='missed').map(r=>r.detectMin)):null},
@@ -1514,6 +1520,7 @@ function renderCohort(c){
 <tr><th class="l">Virtual patients</th><td>${c.n} (seed ${c.seed})</td></tr>
 <tr><th class="l">Median time SpO₂ ≥ 90</th><td>${s.medianPctSpO2_ge90}%</td></tr>
 <tr><th class="l">Median time PaCO₂ 35–45</th><td>${s.medianPctPaCO2_35_45}%</td></tr>
+<tr><th class="l">Median time pH ≥ 7.30</th><td>${s.medianPctPH_ge730}%</td></tr>
 <tr><th class="l">Median time plateau ≤ 30</th><td>${s.medianPctPplat_le30}%</td></tr>
 <tr><th class="l">Lowest SpO₂ seen</th><td>${s.lowestSpO2}%</td></tr>
 <tr><th class="l">Patients with SpO₂ &lt; 85</th><td>${s.patientsWithSpO2below85}</td></tr>
@@ -1531,7 +1538,7 @@ $('harnessBtn').onclick=()=>{
   const results=[];
   Object.keys(SCEN).forEach(k=>{
     simLoad(k,true);
-    const st={n:0,pcIn:0,spIn:0,sp90:0,ecIn:0,plIn:0,spLow:0,changes:0,guards:0,fio2Sum:0};
+    const st={n:0,phOk:0,pcIn:0,spIn:0,sp90:0,ecIn:0,plIn:0,spLow:0,changes:0,guards:0,fio2Sum:0};
     simStep(120,{every:5,abg:30,auto:true,stats:st,silent:true});
     const last=SIM.rows[SIM.rows.length-1];
     results.push({scenario:SCEN[k].name,key:k,minutes:st.n,
