@@ -13,7 +13,7 @@
 <meta name="description" content="Offline mechanical ventilation decision support for paramedics and critical care transport. Deterministic, citation-linked rule engine (JTS CPG 92 + ARDSnet), patient timeline, and a research simulator. No network calls.">
 <title>VENTLINE</title>
 <!--
-  VENTLINE v0.3.0 — Offline Mechanical Ventilation Decision Support (research platform build)
+  VENTLINE v0.3.1 — Offline Mechanical Ventilation Decision Support (research platform build)
   © 2026 HAKOYA LLC · Auravyx Systems · Jae Hyek Choi, PhD, DVSc
   Build 2026-10-24. Single file. No network requests at runtime.
 
@@ -218,7 +218,7 @@ ol.tl{padding-left:20px}
 <body>
 <div class="head">
   <div class="bar">
-    <h1>VENTLINE</h1><span class="ver">v0.3.0</span>
+    <h1>VENTLINE</h1><span class="ver">v0.3.1</span>
     <span class="sp"></span>
     <span class="net" id="net">no network use</span>
     <button id="themeBtn" type="button">DAY</button>
@@ -519,6 +519,11 @@ ol.tl{padding-left:20px}
   <p class="soft">Runs every scenario for 120 sim-minutes from CPG 92 initial settings with closed-loop on, then scores time in target. Same inputs always give the same result.</p>
   <div class="row"><button class="btn" id="harnessBtn" type="button">Run all scenarios</button><button class="btn ghost" id="harnessExp" type="button" disabled>Export results (JSON)</button><button class="btn ghost" id="harnessCsv" type="button" disabled>Export results (CSV)</button></div>
   <div id="harnessOut"></div>
+
+  <h2>Virtual patient cohort</h2>
+  <p class="soft">The demo case run as 20 different patients: lung stiffness, airway resistance, shunt, dead space, CO₂ production, cardiac output, blood volume and size all vary; 3 in 10 get a random emergency (mainstem, pneumothorax, tube obstruction, bronchospasm, disconnect, bleeding) for 15 minutes. Fixed seed, so the run repeats exactly.</p>
+  <div class="row"><button class="btn" id="cohortBtn" type="button">Run 20 virtual patients</button><button class="btn ghost" id="cohortExp" type="button" disabled>Export cohort (JSON)</button></div>
+  <div id="cohortOut"></div>
 </section>
 
 <!-- ================= TIMELINE ================= -->
@@ -539,7 +544,7 @@ ol.tl{padding-left:20px}
 
 <!-- ================= ABOUT ================= -->
 <section class="page" id="p-about">
-  <h2>VENTLINE v0.3.0</h2>
+  <h2>VENTLINE v0.3.1</h2>
   <p>Offline, deterministic, citation-linked ventilator decision support for paramedics who run mechanical ventilators in transport and prolonged field care. Same inputs give the same output. Every step names its source.</p>
   <h3>How the engine works</h3>
   <p>Patient state → rules → guardrails → one next step → timeline. Rules live in modules (CPG 92, ARDSnet, safety). Guardrails clip any proposed change to the tighter of the protocol limit and the ventilator's range, and say so when they do. New modules — hemodynamics, sedation — register into the same engine.</p>
@@ -573,7 +578,7 @@ const SRC={
   ARDS:'ARDSnet card 07/2008',
 };
 const cite=(s,sec)=>`[${SRC[s]||s} · ${sec}]`;
-const VERSION='0.3.0';
+const VERSION='0.3.1';
 
 /* =====================================================================
    1. KNOWLEDGE
@@ -747,6 +752,17 @@ register({id:'SAFE',name:'Safety',rules:[
   {id:'SAFE-SPO2-LOW',run:c=>{
     if(c.has('spo2')&&c.m.spo2<85)return{sev:'crit',pri:7,title:`SpO₂ ${c.m.spo2} %`,body:'Treat as airway compromise until proven otherwise: disconnect, bag with 100 % O₂ and PEEP valve, run DOPE.',src:cite('CPG','Airway compromise; DOPE'),change:c.s.fio2<1?{fio2:1.0}:null};
   }},
+  {id:'SAFE-REFRACT',run:c=>{
+    // Protocol steps exhausted: FiO2 at max and PEEP at the ventilator/protocol ceiling, still hypoxemic.
+    const L=limits();
+    const hyp=(c.has('spo2')&&c.m.spo2<(c.proto==='ards'?88:90))||(c.has('pao2')&&c.m.pao2<55);
+    if(!hyp||c.s.fio2<L.fio2[1]-0.001||c.s.peep<L.peep[1])return;
+    const pl=c.has('pplat')?c.m.pplat:null;
+    return{sev:'crit',pri:6,title:'Hypoxemia at the limits of the protocol and ventilator',
+      body:`FiO₂ ${c.s.fio2.toFixed(2)} and PEEP ${c.s.peep} are at the ceiling (${L.why.peep}). There are no further protocol steps. Re-run DOPE, consider a bag recruitment (PEEP valve 15–20, five breaths held 5–8 s; stop if BP falls), request teleconsultation, and make evacuation the priority.`+
+        (pl!=null&&pl>30?` Plateau ${pl} is above 30 even with PEEP at the ceiling; neither source gives a rule for this — escalate rather than adding pressure.`:''),
+      src:cite('CPG','Hypoxia steps 1–5; Appendix J teleconsultation')+' '+cite('ARDS','PEEP/FiO₂ table top'),local:pl!=null&&pl>30};
+  }},
   {id:'SAFE-DEV',run:c=>{
     const out=[];
     if(c.p.device==='save2')out.push({sev:'info',title:'SAVe II is a short-term vent',body:'Move to a 731, 754 or Hamilton-T1 as soon as feasible. It defaults to PEEP 0 — confirm PEEP is set.',src:cite('CPG','Appendix G')});
@@ -798,6 +814,7 @@ register({id:'CPG92',name:'JTS CPG 92',rules:[
     if(e>45){
       if(c.proto==='ards'&&c.has('ph'))return{sev:'info',title:lab,body:'In ARDS mode the pH rule drives rate (see pH step).'+gapNote,src:cite('ARDS','pH goal')};
       const nr=Math.round(e*rr/40);
+      if(c.m.stack&&nr>rr)return{sev:'warn',pri:1,title:`CO₂ high but breaths are stacking`,body:`Raising the rate shortens exhalation and traps more air. Do not raise the rate: disconnect 3–5 s to let the chest fall, lengthen exhalation (I:E), and fix the cause (triggering, high rate, incomplete exhalation). Accept the higher CO₂ until stacking is gone.`,src:cite('CPG','Stacked breaths / air trapping'),change:c.s.ie<4?{ie:Math.min(5,c.s.ie+1)}:null,auto:true};
       return{sev:'warn',title:`${lab} — hypoventilation`,
         body:`New rate = ${g?'est. PaCO₂':'EtCO₂'} × rate ÷ 40 = ${e} × ${rr} ÷ 40 ≈ ${nr}. Also look for a hypermetabolic cause (pain, shivering, fever, infection) and check VE is not too low.`+gapNote+(c.cond.tbi?' TBI: CO₂ control matters most here.':''),
         src:cite('CPG','Hypercapnia'),local:!!g,change:{rr:nr},auto:true};
@@ -821,6 +838,7 @@ register({id:'CPG92',name:'JTS CPG 92',rules:[
     const gap=c.has('etco2')?a-c.m.etco2:null;
     if(a>45){
       const nr=Math.round(a*rr/40);
+      if(c.m.stack&&nr>rr)return{sev:'warn',pri:1,title:`CO₂ high but breaths are stacking`,body:`Raising the rate shortens exhalation and traps more air. Do not raise the rate: disconnect 3–5 s to let the chest fall, lengthen exhalation (I:E), and fix the cause (triggering, high rate, incomplete exhalation). Accept the higher CO₂ until stacking is gone.`,src:cite('CPG','Stacked breaths / air trapping'),change:c.s.ie<4?{ie:Math.min(5,c.s.ie+1)}:null,auto:true};
       return{sev:'warn',pri:1,title:`PaCO₂ ${a} above 35–45`+(gap!=null&&c.m.etco2<=45?` while EtCO₂ reads ${c.m.etco2}`:''),
         body:(gap!=null&&gap>10?`EtCO₂ is under-reading PaCO₂ by ${r1(gap)} mmHg (dead space or low perfusion). Steer by the blood gas until the gap is known. `:'')+
           `Same ratio as the CPG EtCO₂ formula, applied to PaCO₂: ${a} × ${rr} ÷ 40 ≈ ${nr}.`,
@@ -1001,7 +1019,7 @@ function renderNext(res){
   if(res)buildChecklist(res);
   if(res===null)CL=null;
   renderLamps();
-  if(!S.pt){box.innerHTML=`<div class="ecl standby"><div class="ti">No patient</div><p>Set height, sex, protocol and ventilator. VENTLINE gives initial settings, then one checklist per check.</p><div class="row"><button class="btn" type="button" onclick="go('setup')">Open setup</button></div></div>`;return;}
+  if(!S.pt){box.innerHTML=`<div class="ecl standby"><div class="ti">No patient</div><p>Set height, sex, protocol and ventilator. VENTLINE gives initial settings, then one checklist per check.</p><div class="row"><button class="btn" type="button" onclick="go('setup')">Open setup</button><button class="btn ghost" type="button" id="demoBtn" onclick="loadDemo()">Load demo patient</button></div></div>`;return;}
   if(!CL){box.innerHTML=`<div class="ecl standby"><div class="ti">Standby</div><p>Enter readings below and run a check. SpO₂, EtCO₂ and peak pressure are enough to start; add plateau and a blood gas when you have them.</p></div>`;return;}
   const open=CL.items.filter(i=>i.st==='open');
   const act=CL.items.filter(i=>i.st!=='sensed');
@@ -1307,6 +1325,7 @@ const SCEN={
   asthma:{name:'Severe asthma',C:50,R:32,shunt:0.08,recruit:0.005,vdAlv:0.15,vco2:230,vo2:270,co:5,hb:14,hco3:24,sbp:125,hypo:0,sex:'m',inch:68,proto:'cpg92',obstr:true},
   shock:{name:'Hemorrhagic shock',C:45,R:10,shunt:0.07,recruit:0.01,vdAlv:0.12,vco2:200,vo2:240,co:3.2,hb:8,hco3:20,sbp:84,hypo:1,sex:'m',inch:72,proto:'cpg92',shockC:true},
   metab:{name:'Metabolic acidosis',C:50,R:10,shunt:0.05,recruit:0.01,vdAlv:0.05,vco2:240,vo2:260,co:5.5,hb:13,hco3:12,sbp:110,hypo:0,sex:'f',inch:65,proto:'cpg92',metab:true},
+  demo:{name:'DEMO: blast + smoke inhalation, 32 M',C:35,R:20,shunt:0.24,recruit:0.02,vdAlv:0.18,vco2:230,vo2:270,co:5,hb:12,hco3:22,sbp:104,hypo:0.3,sex:'m',inch:70,proto:'cpg92',burn:true,hypox:true,chest:true},
   smoke:{name:'Smoke inhalation',C:35,R:22,shunt:0.22,recruit:0.02,vdAlv:0.18,vco2:230,vo2:270,co:5.5,hb:13,hco3:22,sbp:118,hypo:0,sex:'m',inch:70,proto:'cpg92',burn:true,hypox:true},
 };
 const SIM={on:false,min:0,p:null,x:null,ev:{},rows:[]};
@@ -1366,14 +1385,14 @@ function simMeas(withAbg){
   return {m,o};
 }
 function simLoad(key,silent){
-  const sc=SCEN[key];
+  const sc=typeof key==='string'?SCEN[key]:key;
   const kg=K.ibwCpg(sc.sex,sc.inch);
   S=blankState();
   S.pt={env:'edu',envName:'Simulation: '+sc.name,proto:sc.proto,device:'generic',kg:r1(kg),actualKg:null,wLabel:`IBW ${r1(kg)} kg`,sex:sc.sex,heightIn:sc.inch};
-  S.cond={hypox:!!sc.hypox,obstr:!!sc.obstr,shock:!!sc.shockC,metab:!!sc.metab,burn:!!sc.burn};
+  S.cond={hypox:!!sc.hypox,obstr:!!sc.obstr,shock:!!sc.shockC,metab:!!sc.metab,burn:!!sc.burn,chest:!!sc.chest};
   const peep=sc.hypox&&!sc.shockC?10:5;
   S.set={vt:Math.round(6*kg),rr:14,peep,fio2:1.0,ie:sc.obstr?3:2,ps:null,mode:'AC'};
-  S.sim=key;
+  S.sim=typeof key==='string'?key:null;
   SIM.on=true;SIM.min=0;SIM.p=sc;SIM.ev={};SIM.rows=[];
   SIM.x={paco2:40,pao2:90};
   // settle 3 min on initial settings
@@ -1393,7 +1412,7 @@ function simStep(minutes,opts={}){
     if(stats){stats.n++;if(m.spo2>=88&&m.spo2<=95)stats.spIn++;if(m.spo2>=90)stats.sp90++;if(m.etco2>=35&&m.etco2<=45)stats.ecIn++;if(m.pplat<=30)stats.plIn++;if(m.spo2<85)stats.spLow++;if(SIM.x.paco2>=35&&SIM.x.paco2<=45)stats.pcIn++;stats.fio2Sum+=S.set.fio2;}
     if(SIM.min%every===0){
       const res=evaluate(m);
-      tlAdd({kind:'check',set:{...S.set},meas:stripMeas(m),rules:res.recs.map(r=>r.id),next:res.next?res.next.id:null});
+      tlAdd({kind:'check',set:{...S.set},meas:stripMeas(m),rules:res.recs.map(r=>r.id),next:res.next?res.next.id:null,crit:res.recs.some(r=>r.sev==='crit')});
       const n=res.next;
       if(auto&&n&&n.change&&n.auto!==false){
         // apply the next step, plus any other auto changes that touch different settings
@@ -1430,6 +1449,81 @@ document.querySelectorAll('.ev').forEach(b=>b.onclick=()=>{
   save();renderSim();renderTimeline();toast(e==='clear'?'Events cleared':b.textContent+' injected');
 });
 
+/* demo patient: simulated case, clearly labeled DEMO */
+function loadDemo(){
+  simLoad('demo');simStep(15,{every:5,abg:0,auto:false,silent:true});
+  const {m}=simMeas(false);const map={spo2:'mSpo2',etco2:'mEtco2',ppeak:'mPpeak',pplat:'mPplat',sbp:'mSbp'};
+  for(const k in map)$(map[k]).value=m[k];
+  save();renderAll();for(const k in map)$(map[k]).value=m[k];
+  go('now');runCheck();toast('Demo patient loaded (simulated)');
+}
+window.loadDemo=loadDemo;
+
+/* cohort: the demo case as N virtual patients with varied physiology and random events */
+function rng(seed){return()=>{seed|=0;seed=seed+0x6D2B79F5|0;let t=Math.imul(seed^seed>>>15,1|seed);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
+let COHORT=null;
+function runCohort(n,seed){
+  const R=rng(seed),U=(a,b)=>a+(b-a)*R();
+  const saved=JSON.stringify(S),savedSim={on:SIM.on,min:SIM.min,p:SIM.p,x:SIM.x&&{...SIM.x},ev:{...SIM.ev},rows:SIM.rows};
+  const base=SCEN.demo,EV=['mainstem','ptx','obstr','bronch','disc','bleed'];const out=[];
+  for(let i=0;i<n;i++){
+    const sc={...base,name:`Virtual patient ${i+1}`,C:Math.round(base.C*U(0.6,1.4)),R:Math.round(base.R*U(0.6,1.6)),shunt:r2(U(0.05,0.45)),recruit:+U(0.005,0.03).toFixed(3),
+      vdAlv:r2(U(0.05,0.35)),vco2:Math.round(U(180,280)),co:r1(U(3.5,6.5)),hypo:r2(U(0,1)),hco3:Math.round(U(16,26)),sbp:Math.round(U(80,130)),sex:R()<0.8?'m':'f',inch:Math.round(U(62,76))};
+    sc.hypox=sc.shunt>=0.2;sc.shockC=sc.sbp<90;
+    const evName=R()<0.3?EV[Math.floor(R()*EV.length)]:null,evAt=Math.round(U(30,90));
+    simLoad(sc,true);
+    const st={n:0,pcIn:0,spIn:0,sp90:0,ecIn:0,plIn:0,spLow:0,changes:0,guards:0,fio2Sum:0};
+    let minSp=100,maxPl=0,maxRr=0,minVtKg=99,maxVtKg=0,rev=0,lastDir=0,detect=null,ruleBreach=0;
+    for(let t=0;t<120;t++){
+      if(evName&&SIM.min===evAt)SIM.ev[evName]=true;
+      if(evName&&SIM.min===evAt+15)SIM.ev={};
+      const rrBefore=S.set.rr;
+      simStep(1,{every:5,abg:30,auto:true,stats:st,silent:true});
+      const r=SIM.rows[SIM.rows.length-1];
+      minSp=Math.min(minSp,r.spo2);maxPl=Math.max(maxPl,r.pplat);maxRr=Math.max(maxRr,S.set.rr);
+      const vk=S.set.vt/S.pt.kg;minVtKg=Math.min(minVtKg,vk);maxVtKg=Math.max(maxVtKg,vk);
+      if(S.set.rr>30||vk>8.05||vk<3.95||S.set.peep>20||S.set.fio2>1)ruleBreach++;
+      const d=Math.sign(S.set.rr-rrBefore);if(d){if(lastDir&&d!==lastDir)rev++;lastDir=d;}
+      if(evName&&detect==null&&SIM.min>evAt&&SIM.min<=evAt+15){
+        const chk=S.timeline.slice(-6).find(e=>e.kind==='check'&&e.simMin===SIM.min);
+        if(chk&&chk.crit)detect=SIM.min-evAt;
+      }
+    }
+    out.push({id:i+1,sex:sc.sex,inch:sc.inch,C:sc.C,R:sc.R,shunt:sc.shunt,vdAlv:sc.vdAlv,co:sc.co,sbp0:sc.sbp,hco3:sc.hco3,event:evName||'',eventAt:evName?evAt:'',
+      detectMin:evName?(detect??'missed'):'',pctSpO2_ge90:Math.round(100*st.sp90/st.n),pctPaCO2_35_45:Math.round(100*st.pcIn/st.n),pctPplat_le30:Math.round(100*st.plIn/st.n),
+      minSpO2:minSp,minSpO2_below85:st.spLow,maxPplat:maxPl,changes:st.changes,guardHits:st.guards,rateReversals:rev,limitBreaches:ruleBreach,
+      finalVT:S.set.vt,finalRR:S.set.rr,finalPEEP:S.set.peep,finalFiO2:S.set.fio2});
+  }
+  S=JSON.parse(saved);Object.assign(SIM,savedSim);save();renderAll();
+  const med=a=>{const b=[...a].sort((x,y)=>x-y);return b[Math.floor(b.length/2)];};
+  const col=k=>out.map(r=>r[k]);
+  const evRuns=out.filter(r=>r.event);
+  COHORT={app:'VENTLINE',version:VERSION,run:new Date().toISOString(),n,seed,
+    design:'DEMO case varied per patient (compliance, resistance, shunt, dead space, CO2 production, cardiac output, volume status, HCO3, SBP, sex, height); 30% get one random event at 30-90 min lasting 15 min; CPG 92 start; closed loop every 5 sim-min; ABG every 30 sim-min; 120 sim-min',
+    note:'Simulation only. Parameters are illustrative assumptions.',
+    summary:{medianPctSpO2_ge90:med(col('pctSpO2_ge90')),medianPctPaCO2_35_45:med(col('pctPaCO2_35_45')),medianPctPplat_le30:med(col('pctPplat_le30')),
+      lowestSpO2:Math.min(...col('minSpO2')),patientsWithSpO2below85:out.filter(r=>r.minSpO2_below85>0).length,
+      limitBreaches:out.reduce((a,r)=>a+r.limitBreaches,0),patientsWithRateOscillation:out.filter(r=>r.rateReversals>=2).length,
+      events:evRuns.length,eventsDetected:evRuns.filter(r=>r.detectMin!=='missed').length,medianDetectMin:evRuns.filter(r=>r.detectMin!=='missed').length?med(evRuns.filter(r=>r.detectMin!=='missed').map(r=>r.detectMin)):null},
+    results:out};
+  return COHORT;
+}
+function renderCohort(c){
+  const s=c.summary;
+  $('cohortOut').innerHTML=`<div class="block"><div class="tw"><table>
+<tr><th class="l">Virtual patients</th><td>${c.n} (seed ${c.seed})</td></tr>
+<tr><th class="l">Median time SpO₂ ≥ 90</th><td>${s.medianPctSpO2_ge90}%</td></tr>
+<tr><th class="l">Median time PaCO₂ 35–45</th><td>${s.medianPctPaCO2_35_45}%</td></tr>
+<tr><th class="l">Median time plateau ≤ 30</th><td>${s.medianPctPplat_le30}%</td></tr>
+<tr><th class="l">Lowest SpO₂ seen</th><td>${s.lowestSpO2}%</td></tr>
+<tr><th class="l">Patients with SpO₂ &lt; 85</th><td>${s.patientsWithSpO2below85}</td></tr>
+<tr><th class="l">Protocol / device limit breaches</th><td>${s.limitBreaches}</td></tr>
+<tr><th class="l">Patients with rate see-saw</th><td>${s.patientsWithRateOscillation}</td></tr>
+<tr><th class="l">Events detected</th><td>${s.eventsDetected} of ${s.events}${s.medianDetectMin!=null?` (median ${s.medianDetectMin} min)`:''}</td></tr>
+</table></div><p class="soft"><span class="tag sim">SIM</span> Engine behavior inside the model, not clinical performance.</p></div>`;
+  $('cohortExp').disabled=false;
+}
+
 /* harness */
 let HARNESS=null;
 $('harnessBtn').onclick=()=>{
@@ -1452,6 +1546,8 @@ $('harnessBtn').onclick=()=>{
     '</table></div><p class="soft">Time-in-target over 120 sim-minutes. <span class="tag sim">SIM</span> Numbers describe engine behavior inside the model, not clinical performance.</p>';
   $('harnessExp').disabled=false;$('harnessCsv').disabled=false;
 };
+$('cohortBtn').onclick=()=>renderCohort(runCohort(20,2410));
+$('cohortExp').onclick=()=>COHORT&&download('ventline-cohort.json',JSON.stringify(COHORT,null,2),'application/json');
 $('harnessExp').onclick=()=>HARNESS&&download('ventline-harness.json',JSON.stringify(HARNESS,null,2),'application/json');
 $('harnessCsv').onclick=()=>{if(!HARNESS)return;const ks=Object.keys(HARNESS.results[0]).filter(k=>k!=='final');
   const lines=[ks.concat(['final_vt','final_rr','final_peep','final_fio2','final_spo2','final_etco2','final_pplat']).join(',')];
@@ -1494,7 +1590,7 @@ function renderAll(){renderPanel();renderNext(null);renderTables();renderTools()
 if(S.sim&&SCEN[S.sim]){SIM.p=SCEN[S.sim];SIM.x={paco2:40,pao2:90};SIM.on=false;}
 renderAll();
 if('serviceWorker' in navigator&&location.protocol.startsWith('http')){addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(()=>{}));}
-window.VENTLINE={evaluate,guard,simLoad,simStep,SIM,K,get S(){return S;}};
+window.VENTLINE={evaluate,guard,simLoad,simStep,runCohort,SIM,K,get S(){return S;}};window.runCohort=runCohort;
 </script>
 </body>
 </html>
