@@ -4,16 +4,16 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0,viewport-fit=cover">
 <script>try{var _t=localStorage.getItem('vl-theme');if(_t==='night')_t='dark';if(_t==='dark'||_t==='light')document.documentElement.setAttribute('data-theme',_t);}catch(e){}</script>
-<meta name="theme-color" content="#132a40">
+<meta name="theme-color" content="#0d1520">
 <link rel="manifest" href="./manifest.webmanifest">
 <link rel="icon" href="./icon-192.png" sizes="192x192" type="image/png">
 <link rel="apple-touch-icon" href="./icon-192.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="VENTLINE">
 <meta name="description" content="Offline mechanical ventilation decision support for paramedics and critical care transport. Deterministic, citation-linked rule engine (JTS CPG 92 + ARDSnet), patient timeline, and a research simulator. No network calls.">
-<title>VENTLINE v0.2.0</title>
+<title>VENTLINE</title>
 <!--
-  VENTLINE v0.2.0 — Offline Mechanical Ventilation Decision Support (research platform build)
+  VENTLINE v0.3.0 — Offline Mechanical Ventilation Decision Support (research platform build)
   © 2026 HAKOYA LLC · Auravyx Systems · Jae Hyek Choi, PhD, DVSc
   Build 2026-10-24. Single file. No network requests at runtime.
 
@@ -32,180 +32,238 @@
         [SIM]   simulator model assumption; illustrative, not validated.
 -->
 <style>
+/* Layout concept: an electronic checklist display. Annunciator lights and the vent status strip
+   ride at the top, the checklist is the working surface, page keys sit at the bottom under the thumb.
+   Color follows flight-deck display convention: white = open, cyan = active/selectable,
+   green = complete, amber = caution, red = warning. Dark-first; day mode for sunlight. */
 :root{
-  --paper:#e8edf1;--panel:#f7f9fb;--ink:#132a40;--soft:#55687c;--rule:#c9d3dc;
-  --o2:#2c7a4b;--co2:#3a67a0;--pr:#6f4a9a;--crit:#b3261e;--warn:#9a5b00;--amber:#e3a21a;
-  --wash:#dfe6ec;--ok:#2c7a4b;--btn:#132a40;--btn-ink:#f7f9fb;
-  --num:"SF Pro Display","Segoe UI Variable Display","Segoe UI",system-ui,sans-serif;
+  --bg:#0d1520;--panel:#141f2c;--panel2:#1a2838;--line:#2b3c50;
+  --ink:#e8eef4;--dim:#8a99ab;--faint:#5c6b7d;
+  --cyan:#47c8e3;--green:#3ccf87;--amber:#ffb21f;--red:#ff5b50;--magenta:#d08cf5;
+  --o2:#5fd0a8;--co2:#72aaf5;--pr:#bba0f5;
+  --cyan-ink:#06222b;--lamp-off:#1d2a39;
+  --ui:"Bahnschrift","DIN Alternate","DIN Next","Avenir Next Condensed","Roboto Condensed","Segoe UI",system-ui,sans-serif;
+  --text:"Segoe UI Variable Text","Segoe UI","SF Pro Text",system-ui,-apple-system,sans-serif;
+  color-scheme:dark;
 }
-@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
-  --paper:#0f1b27;--panel:#152433;--ink:#d8e1ea;--soft:#8fa1b3;--rule:#26394c;
-  --o2:#5fbf86;--co2:#79a3dc;--pr:#b393dc;--crit:#ff7a70;--warn:#f0b35a;--amber:#d99a1c;
-  --wash:#1b2d3f;--ok:#5fbf86;--btn:#d8e1ea;--btn-ink:#0f1b27;
-;color-scheme:dark}}
-:root[data-theme="dark"]{
-  --paper:#0f1b27;--panel:#152433;--ink:#d8e1ea;--soft:#8fa1b3;--rule:#26394c;
-  --o2:#5fbf86;--co2:#79a3dc;--pr:#b393dc;--crit:#ff7a70;--warn:#f0b35a;--amber:#d99a1c;
-  --wash:#1b2d3f;--ok:#5fbf86;--btn:#d8e1ea;--btn-ink:#0f1b27;
-;color-scheme:dark}
+@media (prefers-color-scheme:light){:root:not([data-theme="dark"]){
+  --bg:#eef1f4;--panel:#ffffff;--panel2:#e4e9ee;--line:#c6d0da;
+  --ink:#0d1520;--dim:#4f5f71;--faint:#8593a3;
+  --cyan:#08708a;--green:#137a47;--amber:#a65c00;--red:#c3261c;--magenta:#7d3cb0;
+  --o2:#16795a;--co2:#2a5fb0;--pr:#6a43a8;
+  --cyan-ink:#ffffff;--lamp-off:#dde3e9;color-scheme:light}}
+:root[data-theme="light"]{
+  --bg:#eef1f4;--panel:#ffffff;--panel2:#e4e9ee;--line:#c6d0da;
+  --ink:#0d1520;--dim:#4f5f71;--faint:#8593a3;
+  --cyan:#08708a;--green:#137a47;--amber:#a65c00;--red:#c3261c;--magenta:#7d3cb0;
+  --o2:#16795a;--co2:#2a5fb0;--pr:#6a43a8;
+  --cyan-ink:#ffffff;--lamp-off:#dde3e9;color-scheme:light}
+:root[data-theme="dark"]{color-scheme:dark}
+
 *{box-sizing:border-box}
-html,body{margin:0;background:var(--paper);color:var(--ink);font:16px/1.5 "Avenir Next","Segoe UI Variable Text","Segoe UI",system-ui,-apple-system,sans-serif;-webkit-text-size-adjust:100%}
-body{padding-bottom:env(safe-area-inset-bottom)}
-button,input,select{font:inherit;color:inherit}
-:focus-visible{outline:3px solid var(--amber);outline-offset:2px}
-.num{font-family:var(--num);font-variant-numeric:tabular-nums}
+html,body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 var(--text);-webkit-text-size-adjust:100%}
+button,input,select,textarea{font:inherit;color:inherit}
+:focus-visible{outline:3px solid var(--cyan);outline-offset:2px}
+[hidden]{display:none!important}
+.num{font-family:var(--ui);font-variant-numeric:tabular-nums}
 
-/* top bar */
-.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:6;background:var(--ink);color:var(--paper);padding:10px 16px;display:flex;align-items:center;gap:10px}
-.top h1{font-size:18px;margin:0;font-weight:700;letter-spacing:.08em}
-.top .ver{font-size:12px;opacity:.75}
-.top .sp{flex:1}
-.top .net{font-size:12px;opacity:.85;white-space:nowrap}
-.top .net::before{content:'';display:inline-block;width:8px;height:8px;border-radius:50%;background:#8fa1b3;margin-right:6px;vertical-align:middle}
-.top .net.off::before{background:#5fbf86}
-.top button{background:transparent;border:1px solid rgba(255,255,255,.35);color:inherit;border-radius:8px;min-height:36px;padding:4px 10px;font-size:13px}
+/* ---------- head: title bar, annunciators, status strip ---------- */
+.head{position:sticky;top:env(safe-area-inset-top,0px);z-index:8;background:var(--bg);border-bottom:1px solid var(--line)}
+.bar{display:flex;align-items:center;gap:10px;padding:8px max(16px,env(safe-area-inset-right,0px)) 6px max(16px,env(safe-area-inset-left,0px))}
+.bar h1{margin:0;font:700 17px/1 var(--ui);letter-spacing:.14em}
+.bar .ver{font:12px var(--ui);color:var(--dim);letter-spacing:.06em}
+.bar .sp{flex:1}
+.bar .net{font:12px var(--ui);color:var(--dim);white-space:nowrap;letter-spacing:.04em}
+.bar .net::before{content:'';display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--faint);margin-right:6px;vertical-align:1px}
+.bar .net.off::before{background:var(--green)}
+.bar button{background:none;border:1px solid var(--line);color:var(--dim);border-radius:6px;min-height:34px;padding:2px 10px;font:600 12px var(--ui);letter-spacing:.1em}
 
-/* panel readout: ventilator front-panel strip */
-.panel{background:var(--panel);border-bottom:1px solid var(--rule);padding:8px 12px 10px}
-.pt{font-size:13px;color:var(--soft);display:flex;gap:10px;flex-wrap:wrap;align-items:baseline;margin:0 4px 6px}
+.lamps{display:grid;grid-template-columns:repeat(5,1fr);gap:4px;padding:0 max(16px,env(safe-area-inset-right,0px)) 6px max(16px,env(safe-area-inset-left,0px))}
+.lamp{font:700 11.5px/1 var(--ui);letter-spacing:.12em;text-align:center;padding:7px 2px;border-radius:4px;background:var(--lamp-off);color:var(--faint);border:1px solid transparent}
+.lamp.crit{background:var(--red);color:#fff}
+.lamp.warn{background:transparent;color:var(--amber);border-color:var(--amber)}
+.lamp.info{background:transparent;color:var(--cyan);border-color:var(--cyan)}
+.lamp.ok{background:transparent;color:var(--green);border-color:color-mix(in srgb,var(--green) 45%,transparent)}
+
+.strip{display:grid;grid-template-columns:repeat(5,1fr);border-top:1px solid var(--line);background:var(--panel)}
+.cell{padding:6px 4px 6px 10px;border-right:1px solid var(--line);min-width:0}
+.cell:last-child{border-right:0}
+.cell .k{font:600 10.5px var(--ui);letter-spacing:.12em;color:var(--dim);white-space:nowrap}
+.cell .v{font:600 22px/1.1 var(--ui);font-variant-numeric:tabular-nums;white-space:nowrap}
+.cell .u{font:11px var(--ui);color:var(--dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cell.flash .v{color:var(--cyan)}
+.pt{font:13px var(--ui);color:var(--dim);letter-spacing:.03em;padding:5px max(16px,env(safe-area-inset-right,0px)) 6px max(16px,env(safe-area-inset-left,0px));display:flex;flex-wrap:wrap;gap:4px 12px;background:var(--panel);border-top:1px solid var(--line)}
 .pt b{color:var(--ink);font-weight:600}
-.readouts{display:grid;grid-template-columns:repeat(5,1fr);gap:6px}
-.ro{border-radius:8px;padding:6px 6px 5px;background:var(--wash);border-top:3px solid var(--rule);min-width:0}
-.ro .k{font-size:11px;color:var(--soft);white-space:nowrap}
-.ro .v{font-family:var(--num);font-variant-numeric:tabular-nums;font-size:22px;font-weight:600;line-height:1.1;white-space:nowrap}
-.ro .u{font-size:11px;color:var(--soft);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.ro.o2{border-top-color:var(--o2)}.ro.co2{border-top-color:var(--co2)}.ro.pr{border-top-color:var(--pr)}
 
-nav{display:flex;overflow-x:auto;gap:2px;padding:0 8px;background:var(--panel);border-bottom:1px solid var(--rule);position:sticky;top:calc(56px + env(safe-area-inset-top,0px));z-index:5;scrollbar-width:none}
+/* ---------- page keys (bottom) ---------- */
+nav{position:fixed;left:0;right:0;bottom:0;z-index:9;background:var(--panel);border-top:1px solid var(--line);display:flex;overflow-x:auto;scrollbar-width:none;padding:0 max(6px,env(safe-area-inset-right,0px)) env(safe-area-inset-bottom,0px) max(6px,env(safe-area-inset-left,0px))}
 nav::-webkit-scrollbar{display:none}
-nav button{flex:0 0 auto;border:0;background:none;padding:12px 12px 10px;font-size:15px;color:var(--soft);border-bottom:3px solid transparent;min-height:46px}
-nav button.on{color:var(--ink);border-bottom-color:var(--amber);font-weight:600}
+nav button{flex:1 0 auto;background:none;border:0;border-top:3px solid transparent;color:var(--dim);font:600 12.5px var(--ui);letter-spacing:.1em;padding:12px 10px 13px;min-height:52px;white-space:nowrap}
+nav button.on{color:var(--cyan);border-top-color:var(--cyan)}
 
-main{padding:14px 16px 96px;max-width:760px;margin:0 auto}
+main{max-width:720px;margin:0 auto;padding-block:14px 120px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
 section.page{display:none}section.page.on{display:block}
-h2{font-size:19px;margin:22px 0 8px;font-weight:650}
+h2{font:700 13.5px var(--ui);letter-spacing:.14em;color:var(--dim);margin:26px 0 10px;padding-bottom:6px;border-bottom:1px solid var(--line);text-transform:uppercase}
 h2:first-child{margin-top:4px}
-h3{font-size:15px;margin:16px 0 6px;color:var(--soft);font-weight:600}
+h3{font:600 14px var(--ui);letter-spacing:.06em;color:var(--dim);margin:16px 0 6px}
 p{margin:6px 0}
-.soft{color:var(--soft);font-size:14px}
-.block{background:var(--panel);border:1px solid var(--rule);border-radius:10px;padding:14px;margin:10px 0}
+.soft{color:var(--dim);font-size:14px}
+.block{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:12px 14px;margin:10px 0}
 
-/* the one bold element: next step strip */
-.next{background:var(--panel);border:1px solid var(--rule);border-left:8px solid var(--amber);border-radius:10px;padding:14px 14px 12px;margin:4px 0 12px}
-.next.crit{border-left-color:var(--crit)}
-.next.ok{border-left-color:var(--ok)}
-.next .lead{font-size:13px;color:var(--soft);margin-bottom:2px}
-.next .what{font-size:21px;font-weight:650;line-height:1.25}
-.next .chg{display:flex;flex-wrap:wrap;gap:8px 18px;margin:10px 0 4px}
-.next .chg div{font-family:var(--num);font-variant-numeric:tabular-nums;font-size:15px;color:var(--soft)}
-.next .chg strong{font-size:30px;color:var(--ink);font-weight:650;margin:0 4px}
-.next .chg .arrow{color:var(--amber);font-weight:700;font-size:22px}
-.next .why{font-size:15px;margin-top:6px}
-.next .acts{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap}
+/* ---------- the checklist ---------- */
+.ecl{background:var(--panel);border:1px solid var(--line);border-radius:8px;margin:2px 0 14px;overflow:hidden}
+.ecl-h{display:flex;align-items:baseline;gap:10px;padding:11px 14px;background:var(--panel2);border-bottom:1px solid var(--line)}
+.ecl-h .ti{font:700 16px/1.25 var(--ui);letter-spacing:.08em;text-transform:uppercase;flex:1;text-wrap:balance}
+.ecl-h .ti.crit{color:var(--red)}.ecl-h .ti.warn{color:var(--amber)}.ecl-h .ti.ok{color:var(--green)}
+.ecl-h .ct{font:600 14px var(--ui);color:var(--dim);font-variant-numeric:tabular-nums;white-space:nowrap}
+.it{display:grid;grid-template-columns:26px 1fr;gap:0 8px;padding:10px 14px;border-bottom:1px solid var(--line)}
+.it:last-child{border-bottom:0}
+.it .mk{font:700 17px/1.35 var(--ui);text-align:center}
+.it .tt{font:600 15.5px/1.35 var(--ui);letter-spacing:.02em}
+.it .tg{font:600 11px var(--ui);letter-spacing:.1em;margin-left:8px;padding:1px 6px;border-radius:3px;border:1px solid currentColor;vertical-align:2px;white-space:nowrap}
+.it.open .mk{color:var(--faint)}
+.it.done .mk,.it.done .tt,.it.sensed .mk,.it.sensed .tt{color:var(--green)}
+.it.skip .mk,.it.skip .tt,.it.super .mk,.it.super .tt{color:var(--faint)}
+.it.skip .tt{text-decoration:line-through}
+.it.active{background:color-mix(in srgb,var(--cyan) 9%,var(--panel));box-shadow:inset 3px 0 0 var(--cyan)}
+.it.active .mk,.it.active .tt{color:var(--cyan)}
+.it.active.crit .tt{color:var(--ink)}
+.it .sev{font:700 11px var(--ui);letter-spacing:.12em;margin-right:6px}
+.sev.crit{color:var(--red)}.sev.warn{color:var(--amber)}.sev.info{color:var(--cyan)}
+.it .bd{grid-column:2;font-size:15px;margin-top:4px}
+.it .chg{grid-column:2;display:flex;flex-wrap:wrap;gap:6px 22px;margin:10px 0 2px}
+.it .chg div{font:600 15px var(--ui);color:var(--dim);font-variant-numeric:tabular-nums;letter-spacing:.04em}
+.it .chg b{font:700 30px/1 var(--ui);color:var(--cyan);margin-left:4px}
+.it .chg .fr{font-size:22px;color:var(--ink)}
+.it .acts{grid-column:2;display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+.it .meta{grid-column:2}
+.ecl-f{padding:12px 14px;font:600 14px var(--ui);letter-spacing:.06em;color:var(--green);border-top:1px solid var(--line);background:color-mix(in srgb,var(--green) 8%,var(--panel))}
+.standby{padding:16px 14px}
+.standby .ti{font:700 18px var(--ui);letter-spacing:.08em;text-transform:uppercase}
+.standby p{color:var(--dim);margin:6px 0 0}
 
-.btn{border:0;border-radius:10px;padding:11px 18px;font-weight:600;background:var(--btn);color:var(--btn-ink);min-height:48px;cursor:pointer}
-.btn.ghost{background:transparent;color:var(--ink);border:1.5px solid var(--rule)}
-.btn.amber{background:var(--amber);color:#1a1205}
-.btn.small{min-height:40px;padding:8px 12px;font-size:14px}
-.btn:disabled{opacity:.45;cursor:default}
-.row{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:10px}
-
+/* ---------- buttons, fields ---------- */
+.btn{border:1.5px solid var(--cyan);border-radius:6px;padding:10px 18px;background:var(--cyan);color:var(--cyan-ink);font:700 14.5px var(--ui);letter-spacing:.1em;min-height:48px;cursor:pointer;text-transform:uppercase}
+.btn.ghost{background:transparent;color:var(--ink);border-color:var(--line)}
+.btn.amber{background:var(--cyan);color:var(--cyan-ink);border-color:var(--cyan)}
+.btn.wide{width:100%}
+.btn.small{min-height:40px;padding:6px 12px;font-size:12.5px}
+.btn:disabled{opacity:.4;cursor:default}
+.row{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:12px}
 .fields{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px}
-label{display:block;font-size:13px;color:var(--soft);margin-bottom:3px}
-input,select{width:100%;min-height:48px;border:1.5px solid var(--rule);border-radius:8px;padding:8px 10px;font-size:17px;background:var(--panel)}
-input[type=number]{font-family:var(--num);font-variant-numeric:tabular-nums}
-input[type=checkbox]{width:22px;height:22px;min-height:0;vertical-align:middle;margin:0 10px 0 0;accent-color:var(--ink)}
+label{display:block;font:600 12.5px var(--ui);letter-spacing:.06em;color:var(--dim);margin-bottom:4px}
+input,select{width:100%;min-height:48px;border:1px solid var(--line);border-radius:6px;padding:8px 10px;font:600 18px var(--ui);background:var(--panel);color:var(--ink)}
+input::placeholder{color:var(--faint);font-weight:400}
+input[type=number]{font-variant-numeric:tabular-nums}
 .f-o2 label{color:var(--o2)}.f-co2 label{color:var(--co2)}.f-pr label{color:var(--pr)}
-.checks label{display:flex;align-items:center;font-size:15px;color:var(--ink);padding:9px 0;border-bottom:1px solid var(--rule);margin:0}
 
-/* rule list */
-.rec{border-left:4px solid var(--rule);padding:8px 0 8px 12px;margin:8px 0}
-.rec.crit{border-color:var(--crit)}.rec.warn{border-color:var(--amber)}.rec.ok{border-color:var(--ok)}.rec.info{border-color:var(--co2)}
-.rec .t{font-weight:600}
+/* checklists made of checkboxes (DOPE, conditions, distress signs) */
+.checks{border:1px solid var(--line);border-radius:8px;background:var(--panel);overflow:hidden;margin:6px 0}
+.checks label{display:grid;grid-template-columns:26px 1fr;gap:8px;align-items:start;font:500 15px/1.4 var(--text);letter-spacing:0;color:var(--ink);padding:11px 14px;margin:0;border-bottom:1px solid var(--line);cursor:pointer}
+.checks label:last-child{border-bottom:0}
+.checks input[type=checkbox]{appearance:none;-webkit-appearance:none;width:22px;height:22px;min-height:0;margin:0;border:1.5px solid var(--faint);border-radius:50%;background:transparent;display:grid;place-content:center;padding:0}
+.checks input[type=checkbox]:checked{border-color:var(--green);background:var(--green)}
+.checks input[type=checkbox]:checked::after{content:'✓';color:var(--bg);font:800 14px/1 var(--ui)}
+.checks label:has(input:checked){color:var(--green)}
+
+/* findings list */
+.rec{display:grid;grid-template-columns:auto 1fr;gap:2px 10px;padding:10px 0;border-bottom:1px solid var(--line)}
+.rec::before{content:'';width:4px;border-radius:2px;background:var(--faint);grid-row:1/span 3}
+.rec.crit::before{background:var(--red)}.rec.warn::before{background:var(--amber)}.rec.ok::before{background:var(--green)}.rec.info::before{background:var(--cyan)}
+.rec .t{font:600 15px var(--ui);letter-spacing:.02em}
 .rec .b{font-size:15px}
-.src{display:block;font-size:12.5px;color:var(--soft);margin-top:3px}
-.tag{display:inline-block;font-size:11.5px;padding:1px 7px;border-radius:999px;border:1px solid var(--rule);color:var(--soft);margin-left:6px;vertical-align:1px;white-space:nowrap}
-.tag.local{border-color:var(--warn);color:var(--warn)}
-.tag.sim{border-color:var(--pr);color:var(--pr)}
-.guard{font-size:13.5px;color:var(--warn);margin-top:4px}
+.rec .b ul,.it .bd ul{margin:4px 0;padding-left:18px}
+.src{display:block;font:12px/1.4 var(--ui);color:var(--dim);margin-top:4px;letter-spacing:.02em}
+.tag{display:inline-block;font:600 11px var(--ui);letter-spacing:.08em;padding:1px 6px;border-radius:3px;border:1px solid var(--line);color:var(--dim);margin-left:6px;vertical-align:1px;white-space:nowrap}
+.tag.local{border-color:var(--amber);color:var(--amber)}
+.tag.sim{border-color:var(--magenta);color:var(--magenta)}
+.guard{font:600 13.5px var(--ui);color:var(--amber);margin-top:6px;letter-spacing:.02em}
 
-details{border-top:1px solid var(--rule);padding:6px 0}
-details>summary{cursor:pointer;padding:8px 0;font-weight:600;list-style:none;min-height:40px}
-details>summary::before{content:'+';display:inline-block;width:18px;color:var(--soft)}
-details[open]>summary::before{content:'−'}
+details{border-top:1px solid var(--line);padding:4px 0}
+details>summary{cursor:pointer;padding:10px 0;font:600 14px var(--ui);letter-spacing:.08em;list-style:none;min-height:44px;color:var(--ink)}
+details>summary::-webkit-details-marker{display:none}
+details>summary::before{content:'▸';display:inline-block;width:20px;color:var(--cyan)}
+details[open]>summary::before{content:'▾'}
 
 .tw{overflow-x:auto;-webkit-overflow-scrolling:touch;margin:6px 0}
-table{border-collapse:collapse;font-size:14px;white-space:nowrap;font-variant-numeric:tabular-nums}
-th,td{border:1px solid var(--rule);padding:6px 8px;text-align:center}
-th{background:var(--wash);font-weight:600}
-td.cur{background:var(--ink);color:var(--paper);font-weight:700}
+table{border-collapse:collapse;font:14px var(--ui);white-space:nowrap;font-variant-numeric:tabular-nums}
+th,td{border:1px solid var(--line);padding:6px 9px;text-align:center}
+th{background:var(--panel2);font-weight:600;color:var(--dim)}
+td.cur{background:var(--cyan);color:var(--cyan-ink);font-weight:700}
 td.l,th.l{text-align:left}
 
 .chart{width:100%;height:auto;display:block}
-.charts{display:grid;grid-template-columns:1fr;gap:6px}
-.chartlbl{font-size:13px;color:var(--soft);display:flex;justify-content:space-between}
+.charts{display:grid;grid-template-columns:1fr;gap:8px}
+.chartlbl{font:600 12.5px var(--ui);letter-spacing:.06em;color:var(--dim);display:flex;justify-content:space-between}
+.chartlbl .num{color:var(--ink);font-size:14px}
 .tl{font-size:14px}
-.tl .e{padding:8px 0;border-bottom:1px solid var(--rule)}
-.tl .e .h{font-size:12.5px;color:var(--soft)}
-.badge{display:inline-block;font-size:11.5px;padding:1px 7px;border-radius:5px;background:var(--wash);margin-right:6px}
-.badge.auto{background:var(--pr);color:#fff}.badge.acc{background:var(--ok);color:#fff}.badge.skip{background:var(--rule)}
-.simbar{border:1.5px dashed var(--pr);border-radius:10px;padding:10px 12px;margin:8px 0;font-size:14px}
-.disc{font-size:13px;color:var(--soft);border-top:1px solid var(--rule);padding-top:10px;margin-top:16px}
-.exportbox{position:fixed;left:0;right:0;bottom:0;z-index:15;background:var(--panel);border-top:2px solid var(--amber);padding:12px max(16px,env(safe-area-inset-right,0px)) calc(12px + env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px));max-height:60vh;overflow:auto}
+.tl .e{padding:9px 0;border-bottom:1px solid var(--line)}
+.tl .e .h{font:12px var(--ui);color:var(--dim);letter-spacing:.04em}
+.badge{display:inline-block;font:700 10.5px var(--ui);letter-spacing:.12em;padding:2px 6px;border-radius:3px;border:1px solid var(--line);color:var(--dim);margin-right:8px;text-transform:uppercase}
+.badge.auto{border-color:var(--magenta);color:var(--magenta)}.badge.acc{border-color:var(--green);color:var(--green)}.badge.skip{color:var(--faint)}
+.simbar{border:1px dashed var(--magenta);border-radius:8px;padding:10px 12px;margin:8px 0;font-size:14px;color:var(--dim)}
+.disc{font-size:13px;color:var(--dim);border-top:1px solid var(--line);padding-top:10px;margin-top:16px}
+ol.tl{padding-left:20px}
+
+.exportbox{position:fixed;left:0;right:0;bottom:0;z-index:15;background:var(--panel);border-top:2px solid var(--cyan);padding:12px max(16px,env(safe-area-inset-right,0px)) calc(12px + env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px));max-height:60vh;overflow:auto}
 .exportbox .sp{flex:1}
-.exportbox textarea{width:100%;height:30vh;font:12px/1.4 ui-monospace,Menlo,Consolas,monospace;background:var(--paper);color:var(--ink);border:1.5px solid var(--rule);border-radius:8px;padding:8px}
-[hidden]{display:none!important}
-.toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:var(--ink);color:var(--paper);padding:10px 16px;border-radius:10px;font-size:14px;opacity:0;pointer-events:none;transition:opacity .2s;z-index:20;max-width:92vw}
+.exportbox textarea{width:100%;height:30vh;font:12px/1.4 ui-monospace,Menlo,Consolas,monospace;background:var(--bg);color:var(--ink);border:1px solid var(--line);border-radius:6px;padding:8px}
+.toast{position:fixed;left:50%;bottom:calc(68px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:6px;font:600 14px var(--ui);letter-spacing:.04em;opacity:0;pointer-events:none;transition:opacity .2s;z-index:20;max-width:92vw}
 .toast.on{opacity:1}
-@media (max-width:420px){.ro .v{font-size:19px}.readouts{gap:4px}.ro{padding:5px 4px}}
+@media (max-width:420px){.cell .v{font-size:19px}.cell{padding-left:7px}.lamp{font-size:10.5px;letter-spacing:.06em}}
 @media (prefers-reduced-motion:reduce){.toast{transition:none}}
-@media print{.top,nav,.panel,.btn,.noprint{display:none!important}body{background:#fff;color:#000}}
+@media print{.head,nav,.btn,.noprint{display:none!important}body{background:#fff;color:#000}}
 </style>
 </head>
 <body>
-<div class="top">
-  <h1>VENTLINE</h1><span class="ver">v0.2.0</span>
-  <span class="sp"></span>
-  <span class="net" id="net">no network use</span>
-  <button id="themeBtn" type="button">Night</button>
-</div>
-
-<div class="panel" aria-live="polite">
-  <div class="pt" id="ptLine">No patient set. Start in Setup.</div>
-  <div class="readouts">
-    <div class="ro pr"><div class="k">VT</div><div class="v" id="roVt">–</div><div class="u" id="roVtU">mL</div></div>
-    <div class="ro co2"><div class="k">Rate</div><div class="v" id="roRr">–</div><div class="u">/min</div></div>
-    <div class="ro o2"><div class="k">PEEP</div><div class="v" id="roPeep">–</div><div class="u">cmH₂O</div></div>
-    <div class="ro o2"><div class="k">FiO₂</div><div class="v" id="roFio2">–</div><div class="u">fraction</div></div>
-    <div class="ro co2"><div class="k">I:E</div><div class="v" id="roIe">–</div><div class="u" id="roMv">MV –</div></div>
+<div class="head">
+  <div class="bar">
+    <h1>VENTLINE</h1><span class="ver">v0.3.0</span>
+    <span class="sp"></span>
+    <span class="net" id="net">no network use</span>
+    <button id="themeBtn" type="button">DAY</button>
   </div>
+  <div class="lamps" id="lamps" aria-label="Annunciators">
+    <div class="lamp" id="lampOXY">OXY</div>
+    <div class="lamp" id="lampCO2">CO₂</div>
+    <div class="lamp" id="lampPRESS">PRESS</div>
+    <div class="lamp" id="lampCIRC">CIRC</div>
+    <div class="lamp" id="lampDEV">DEVICE</div>
+  </div>
+  <div class="strip" aria-live="polite">
+    <div class="cell"><div class="k">VT</div><div class="v" id="roVt">–</div><div class="u" id="roVtU">mL</div></div>
+    <div class="cell"><div class="k">RATE</div><div class="v" id="roRr">–</div><div class="u">/min</div></div>
+    <div class="cell"><div class="k">PEEP</div><div class="v" id="roPeep">–</div><div class="u">cmH₂O</div></div>
+    <div class="cell"><div class="k">FiO₂</div><div class="v" id="roFio2">–</div><div class="u">fraction</div></div>
+    <div class="cell"><div class="k">I:E</div><div class="v" id="roIe">–</div><div class="u" id="roMv">MV –</div></div>
+  </div>
+  <div class="pt" id="ptLine">No patient set. Start in Setup.</div>
 </div>
 
-<nav aria-label="Sections">
-  <button data-p="now" class="on">Now</button>
-  <button data-p="setup">Setup</button>
-  <button data-p="trouble">Trouble</button>
+<nav aria-label="Pages">
+  <button data-p="now" class="on">CHECKLIST</button>
+  <button data-p="setup">SETUP</button>
+  <button data-p="trouble">NON-NORMAL</button>
   <button data-p="abg">ABG</button>
-  <button data-p="wean">Wean</button>
-  <button data-p="tools">Tools</button>
-  <button data-p="sim">Simulator</button>
-  <button data-p="log">Timeline</button>
-  <button data-p="about">About</button>
+  <button data-p="wean">WEAN</button>
+  <button data-p="tools">TOOLS</button>
+  <button data-p="sim">SIM</button>
+  <button data-p="log">LOG</button>
+  <button data-p="about">INFO</button>
 </nav>
 
 <main>
 
-<!-- ================= NOW ================= -->
+<!-- ================= NOW (checklist) ================= -->
 <section class="page on" id="p-now">
   <div id="nextBox"></div>
 
-  <h2>Latest readings</h2>
-  <p class="soft">Enter what you have. Blank fields are ignored. Settings above are what the ventilator is on now.</p>
+  <h2>Readings</h2>
   <div class="fields">
     <div class="f-o2"><label for="mSpo2">SpO₂ %</label><input id="mSpo2" type="number" inputmode="decimal"></div>
     <div class="f-co2"><label for="mEtco2">EtCO₂ mmHg</label><input id="mEtco2" type="number" inputmode="decimal"></div>
-    <div class="f-pr"><label for="mPpeak">Peak pressure</label><input id="mPpeak" type="number" inputmode="decimal" placeholder="cmH₂O"></div>
-    <div class="f-pr"><label for="mPplat">Plateau pressure</label><input id="mPplat" type="number" inputmode="decimal" placeholder="0.5 s pause"></div>
+    <div class="f-pr"><label for="mPpeak">Peak cmH₂O</label><input id="mPpeak" type="number" inputmode="decimal"></div>
+    <div class="f-pr"><label for="mPplat">Plateau cmH₂O</label><input id="mPplat" type="number" inputmode="decimal" placeholder="0.5 s pause"></div>
     <div><label for="mSbp">Systolic BP</label><input id="mSbp" type="number" inputmode="decimal" placeholder="mmHg"></div>
     <div><label for="mHr">Heart rate</label><input id="mHr" type="number" inputmode="decimal"></div>
   </div>
@@ -219,11 +277,11 @@ td.l,th.l{text-align:left}
     </div>
   </details>
   <div class="checks">
-    <label><input type="checkbox" id="mAcute">Sudden change (minutes, not hours)</label>
-    <label><input type="checkbox" id="mStack">Breath stacking or patient fighting the vent</label>
+    <label><input type="checkbox" id="mAcute"><span>Sudden change (minutes, not hours)</span></label>
+    <label><input type="checkbox" id="mStack"><span>Breath stacking or patient fighting the vent</span></label>
   </div>
   <div class="row">
-    <button class="btn" id="evalBtn" type="button">Check now</button>
+    <button class="btn" id="evalBtn" type="button">Run check</button>
     <button class="btn ghost" id="clearMeas" type="button">Clear readings</button>
   </div>
 
@@ -245,7 +303,7 @@ td.l,th.l{text-align:left}
 
   <details>
     <summary>PEEP / FiO₂ tables (ARDSnet)</summary>
-    <p class="soft">Goal PaO₂ 55–80 mmHg or SpO₂ 88–95 %. Minimum PEEP 5. Dark cell = current pair (nearest). CPG 92 points to this table for stepwise PEEP/FiO₂ increases.</p>
+    <p class="soft">Goal PaO₂ 55–80 mmHg or SpO₂ 88–95 %. Minimum PEEP 5. Highlighted cell = current pair (nearest). CPG 92 points to this table for stepwise PEEP/FiO₂ increases.</p>
     <h3>Lower PEEP / higher FiO₂</h3><div id="tblLo"></div>
     <h3>Higher PEEP / lower FiO₂</h3><div id="tblHi"></div>
     <div class="fields"><div><label for="tblSel">Table in use</label><select id="tblSel"><option value="lo">Lower PEEP / higher FiO₂</option><option value="hi">Higher PEEP / lower FiO₂</option></select></div></div>
@@ -336,13 +394,13 @@ td.l,th.l{text-align:left}
   <div id="alOut"></div>
 
   <h2>Low SpO₂</h2>
-  <ol class="tl" style="padding-left:20px">
-    <li>FiO₂ to 1.0. Check chest rise, EtCO₂, probe placement. Run DOPE.</li>
-    <li>At altitude, increase FiO₂.</li>
-    <li>Gradual decline: raise PEEP and FiO₂ stepwise on the ARDSnet table.</li>
-    <li>Recruitment by bag: PEEP valve 15–20 cmH₂O, five breaths, each held 5–8 s. Watch BP; stop if it falls. Clamp the tube when switching vent ↔ bag. Reassess for tension pneumothorax.</li>
-    <li>Check O₂ supply pressure and connections.</li>
-  </ol>
+  <div class="checks">
+    <label><input type="checkbox"><span>FiO₂ to 1.0. Check chest rise, EtCO₂, probe placement. Run DOPE.</span></label>
+    <label><input type="checkbox"><span>At altitude, increase FiO₂.</span></label>
+    <label><input type="checkbox"><span>Gradual decline: raise PEEP and FiO₂ stepwise on the ARDSnet table.</span></label>
+    <label><input type="checkbox"><span>Recruitment by bag: PEEP valve 15–20 cmH₂O, five breaths, each held 5–8 s. Watch BP; stop if it falls. Clamp the tube when switching vent ↔ bag. Reassess for tension pneumothorax.</span></label>
+    <label><input type="checkbox"><span>Check O₂ supply pressure and connections.</span></label>
+  </div>
   <span class="src">[JTS CPG 92 · Changes in respiratory status: hypoxia]</span>
 
   <h2>EtCO₂ high or low</h2>
@@ -481,7 +539,7 @@ td.l,th.l{text-align:left}
 
 <!-- ================= ABOUT ================= -->
 <section class="page" id="p-about">
-  <h2>VENTLINE v0.2.0</h2>
+  <h2>VENTLINE v0.3.0</h2>
   <p>Offline, deterministic, citation-linked ventilator decision support for paramedics who run mechanical ventilators in transport and prolonged field care. Same inputs give the same output. Every step names its source.</p>
   <h3>How the engine works</h3>
   <p>Patient state → rules → guardrails → one next step → timeline. Rules live in modules (CPG 92, ARDSnet, safety). Guardrails clip any proposed change to the tighter of the protocol limit and the ventilator's range, and say so when they do. New modules — hemodynamics, sedation — register into the same engine.</p>
@@ -492,7 +550,7 @@ td.l,th.l{text-align:left}
   <p class="soft">Body weight: CPG 92 uses 2.2 kg per inch over 60 in (female base 45 kg); ARDSnet uses 2.3 kg per inch (female base 45.5 kg). VENTLINE uses the formula of the selected protocol and shows both. Rate: CPG 92 device range is 10–30/min; ARDSnet allows up to 35. PEEP: CPG 92 range 5–20; the ARDSnet tables reach 24. When a protocol step exceeds the ventilator range, the guardrail stops at the range and flags it.</p>
   <h3>Tags</h3>
   <p class="soft"><span class="tag local">LOCAL</span> standard physiology or an editable default, not guideline content. <span class="tag sim">SIM</span> simulator assumption, illustrative only.</p>
-  <h3>Not in v0.2</h3>
+  <h3>Not in v0.3</h3>
   <p class="soft">Pediatric settings, sedation and paralytic dosing (CPG 92 refers to the JTS PFC Analgesia and Sedation CPG), prone positioning, ECMO, pressure-support step-down schedule, hemodynamic module. Each waits for its primary source.</p>
   <div class="disc"><b>Intended use.</b> Research and decision-support aid for trained clinicians. Not a medical device; not reviewed or cleared by FDA. Clinical judgment, local medical direction, and the current published guideline govern. No patient data leaves this device.</div>
   <p class="soft">© 2026 HAKOYA LLC · Auravyx Systems</p>
@@ -515,7 +573,7 @@ const SRC={
   ARDS:'ARDSnet card 07/2008',
 };
 const cite=(s,sec)=>`[${SRC[s]||s} · ${sec}]`;
-const VERSION='0.2.0';
+const VERSION='0.3.0';
 
 /* =====================================================================
    1. KNOWLEDGE
@@ -867,15 +925,20 @@ register({id:'ARDS',name:'ARDSnet',rules:[
    ===================================================================== */
 function toast(t){const e=$('toast');e.textContent=t;e.classList.add('on');clearTimeout(toast._t);toast._t=setTimeout(()=>e.classList.remove('on'),2200);}
 function renderPanel(){
-  if(!S.pt){$('ptLine').textContent='No patient set. Start in Setup.';['roVt','roRr','roPeep','roFio2','roIe'].forEach(i=>$(i).textContent='–');return;}
+  if(!S.pt){$('ptLine').textContent='No patient set. Start in Setup.';['roVt','roRr','roPeep','roFio2','roIe'].forEach(i=>$(i).textContent='–');$('roVtU').textContent='mL';$('roMv').textContent='MV –';renderLamps();return;}
   const p=S.pt,s=S.set,d=K.dev[p.device];
-  $('ptLine').innerHTML=`<b>${p.envName}</b><span>${p.wLabel}</span><span>${p.proto==='ards'?'ARDSnet':'CPG 92'}</span><span>${d.name}</span>`;
-  $('roVt').textContent=s.vt;$('roVtU').textContent=`mL · ${r1(s.vt/p.kg)}/kg`;
+  $('ptLine').innerHTML=`<b>${esc(p.envName)}</b><span>${esc(p.wLabel)}</span><span>${p.proto==='ards'?'ARDSnet':'CPG 92'}</span><span>${esc(d.name)}</span>`;
+  $('roVt').textContent=s.vt;$('roVtU').textContent=`mL ${r1(s.vt/p.kg)}/kg`;
   $('roRr').textContent=s.rr;$('roPeep').textContent=s.peep;$('roFio2').textContent=s.fio2.toFixed(2);
   $('roIe').textContent='1:'+s.ie;$('roMv').textContent=`MV ${r1(s.vt*s.rr/1000)} L`;
   ['sVt','sRr','sPeep','sFio2'].forEach((id,i)=>$(id).value=[s.vt,s.rr,s.peep,s.fio2][i]);
   $('sIe').value=String(s.ie);$('sPs').value=s.ps??'';
   $('tblSel').value=S.table;
+  renderLamps();
+}
+function flashCells(keys){
+  const map={vt:'roVt',rr:'roRr',peep:'roPeep',fio2:'roFio2',ie:'roIe'};
+  keys.forEach(k=>{const el=map[k]&&$(map[k]);if(!el)return;const c=el.parentElement;c.classList.add('flash');setTimeout(()=>c.classList.remove('flash'),2500);});
 }
 function readMeas(){
   const g=id=>num(id);
@@ -896,31 +959,91 @@ function recHtml(r){
     `<span class="src">${esc(r.src||'')} · ${r.id}</span></div>`;
 }
 function changeHtml(ch){
-  return Object.keys(ch).map(k=>`<div>${label(k)} ${fmt(k,S.set[k])}<span class="arrow"> → </span><strong>${fmt(k,ch[k])}</strong></div>`).join('');
+  return Object.keys(ch).map(k=>`<div>${label(k)} <span class="fr">${fmt(k,S.set[k])}</span> → <b>${fmt(k,ch[k])}</b></div>`).join('');
 }
+
+/* ---------- Checklist (electronic checklist, flight-deck style) ---------- */
+const CAT=[
+  ['OXY','Oxygenation',/OXY|SPO2/],
+  ['CO2','Ventilation',/ETCO2|PACO2|CEILING|-PH|HOLD/],
+  ['PRESS','Pressure',/PEAK|PPLAT|VTKG|OBSTR|-IE/],
+  ['CIRC','Circulation',/SHOCK|DISC/],
+  ['DEV','Device',/DEV/],
+];
+function catOf(id){const c=CAT.find(c=>c[2].test(id));return c?c[0]:'INFO';}
+let CL=null; // {title, sev, items:[{r,st}]}
 let LAST=null;
+function buildChecklist(res){
+  const act=res.recs.filter(r=>r.sev!=='ok'), sensed=res.recs.filter(r=>r.sev==='ok');
+  const items=act.map(r=>({r,st:'open'})).concat(sensed.map(r=>({r,st:'sensed'})));
+  const lit=[...new Set(act.filter(r=>r.sev==='crit'||r.sev==='warn').map(r=>catOf(r.id)).filter(c=>c!=='INFO'))];
+  const names=lit.map(c=>CAT.find(x=>x[0]===c)[1]);
+  const sev=act.some(r=>r.sev==='crit')?'crit':act.some(r=>r.sev==='warn')?'warn':'ok';
+  CL={title:names.length?names.join(' + '):(act.length?'Routine checks':'All parameters normal'),sev,items};
+}
+function lampState(){
+  const st={OXY:'',CO2:'',PRESS:'',CIRC:'',DEV:''};
+  if(!CL)return st;
+  const rank={'':0,ok:1,info:2,warn:3,crit:4};
+  CL.items.forEach(it=>{
+    const c=catOf(it.r.id);if(!(c in st))return;
+    let s=it.r.sev;if(it.st==='done'||it.st==='skip'||it.st==='super')s=s==='crit'?'warn':s==='warn'?'info':s; // handled items dim one step
+    if(rank[s]>rank[st[c]])st[c]=s;
+  });
+  return st;
+}
+function renderLamps(){
+  const st=lampState();
+  for(const k in st){const el=$('lamp'+k);if(el)el.className='lamp'+(st[k]?' '+st[k]:'');}
+}
 function renderNext(res){
   const box=$('nextBox');
-  if(!S.pt){box.innerHTML=`<div class="next"><div class="lead">Start here</div><div class="what">Set up the patient</div><div class="why">Height, sex, protocol and ventilator. VENTLINE then gives initial settings and one next step at a time.</div><div class="acts"><button class="btn amber" type="button" onclick="go('setup')">Open Setup</button></div></div>`;return;}
-  if(!res){box.innerHTML=`<div class="next ok"><div class="lead">Ready</div><div class="what">Enter readings, then Check now</div><div class="why">SpO₂, EtCO₂ and peak pressure are enough to start. Add plateau and a blood gas when you have them.</div></div>`;return;}
-  const n=res.next;
-  if(!n){box.innerHTML=`<div class="next ok"><div class="lead">Next step</div><div class="what">Nothing to change</div></div>`;return;}
-  const cls=n.sev==='crit'?'crit':n.sev==='ok'?'ok':'';
-  box.innerHTML=`<div class="next ${cls}"><div class="lead">Next step</div><div class="what">${esc(n.title)}</div>`+
-    (n.change?`<div class="chg">${changeHtml(n.change)}</div>`:'')+
-    `<div class="why">${n.body}</div>`+
-    (n.guard&&n.guard.length?`<div class="guard">Guardrail: ${n.guard.map(esc).join(' ')}</div>`:'')+
-    `<span class="src">${esc(n.src||'')} · ${n.id}${n.local?' · LOCAL':''}</span>`+
-    `<div class="acts">${n.change?'<button class="btn amber" id="applyBtn" type="button">Apply</button>':''}<button class="btn ghost" id="skipBtn" type="button">${n.change?'Skip':'Noted'}</button></div></div>`;
-  if(n.change)$('applyBtn').onclick=()=>applyRec(n,'acc');
-  $('skipBtn').onclick=()=>{tlAdd({kind:'skip',rule:n.id,note:n.title});$('nextBox').innerHTML='';toast('Logged as skipped');renderTimeline();};
+  if(res)buildChecklist(res);
+  if(res===null)CL=null;
+  renderLamps();
+  if(!S.pt){box.innerHTML=`<div class="ecl standby"><div class="ti">No patient</div><p>Set height, sex, protocol and ventilator. VENTLINE gives initial settings, then one checklist per check.</p><div class="row"><button class="btn" type="button" onclick="go('setup')">Open setup</button></div></div>`;return;}
+  if(!CL){box.innerHTML=`<div class="ecl standby"><div class="ti">Standby</div><p>Enter readings below and run a check. SpO₂, EtCO₂ and peak pressure are enough to start; add plateau and a blood gas when you have them.</p></div>`;return;}
+  const open=CL.items.filter(i=>i.st==='open');
+  const act=CL.items.filter(i=>i.st!=='sensed');
+  const doneN=act.filter(i=>i.st!=='open').length;
+  const active=open[0]||null;
+  let h=`<div class="ecl"><div class="ecl-h"><span class="ti ${CL.sev}">${esc(CL.title)}</span><span class="ct">${doneN} / ${act.length}</span></div>`;
+  CL.items.forEach((it,idx)=>{
+    const r=it.r;const isAct=it===active;
+    const mk={open:isAct?'▸':'○',done:'✓',sensed:'✓',skip:'–',super:'↻'}[it.st];
+    const sevTag=r.sev==='crit'?'<span class="sev crit">WARNING</span>':r.sev==='warn'?'<span class="sev warn">CAUTION</span>':'';
+    const stTag=it.st==='sensed'?'<span class="tg">SENSED</span>':it.st==='skip'?'<span class="tg">SKIPPED</span>':it.st==='super'?'<span class="tg">RECHECK</span>':it.done==='ack'?'<span class="tg">CHECKED</span>':'';
+    h+=`<div class="it ${isAct?'active ':''}${it.st} ${r.sev}"><div class="mk">${mk}</div><div class="tt">${isAct?sevTag:''}${esc(r.title)}${stTag}${r.local?'<span class="tag local">LOCAL</span>':''}</div>`;
+    if(isAct){
+      if(r.change)h+=`<div class="chg">${changeHtml(r.change)}</div>`;
+      h+=`<div class="bd">${r.body}</div>`;
+      if(r.guard&&r.guard.length)h+=`<div class="meta guard">Guardrail: ${r.guard.map(esc).join(' ')}</div>`;
+      h+=`<span class="meta src">${esc(r.src||'')} · ${r.id}</span>`;
+      h+=`<div class="acts">${r.change?'<button class="btn" id="applyBtn" type="button">Do it</button>':'<button class="btn" id="ackBtn" type="button">Checked</button>'}<button class="btn ghost" id="skipBtn" type="button">Skip</button></div>`;
+    }
+    h+='</div>';
+  });
+  if(!open.length)h+=`<div class="ecl-f">Checklist complete. Re-measure in about 5 minutes, then run the next check.</div>`;
+  h+='</div>';
+  box.innerHTML=h;
+  if(!active)return;
+  if(active.r.change)$('applyBtn').onclick=()=>applyRec(active.r,'acc');
+  else $('ackBtn').onclick=()=>{active.st='done';active.done='ack';tlAdd({kind:'ack',rule:active.r.id,note:active.r.title});renderNext();renderTimeline();};
+  $('skipBtn').onclick=()=>{active.st='skip';tlAdd({kind:'skip',rule:active.r.id,note:active.r.title});toast('Logged as skipped');renderNext();renderTimeline();};
 }
 function applyRec(n,how){
   const before={...S.set};Object.assign(S.set,n.change);markVent(before,S.set);save();
   tlAdd({kind:how,rule:n.id,before,after:{...S.set},note:n.title});
-  renderPanel();toast('Applied: '+Object.keys(n.change).map(k=>`${label(k)} ${fmt(k,n.change[k])}`).join(', '));
-  $('nextBox').innerHTML=`<div class="next ok"><div class="lead">Applied</div><div class="what">${esc(n.title)}</div><div class="why">Re-measure in about 5 minutes (peak pressure, SpO₂, EtCO₂), then Check now.</div></div>`;
-  renderTimeline();
+  if(CL){
+    const keys=Object.keys(n.change);
+    CL.items.forEach(it=>{
+      if(it.r===n)it.st='done';
+      else if(it.st==='open'&&it.r.change&&Object.keys(it.r.change).some(k=>keys.includes(k)))it.st='super';
+    });
+  }
+  renderPanel();flashCells(Object.keys(n.change));
+  toast('Done: '+Object.keys(n.change).map(k=>`${label(k)} ${fmt(k,n.change[k])}`).join(', '));
+  renderNext();renderTimeline();
 }
 function runCheck(){
   if(!S.pt){go('setup');return;}
@@ -929,7 +1052,7 @@ function runCheck(){
   if(!Object.keys(m).some(k=>typeof m[k]==='number')){$('allRecs').innerHTML='<div class="rec warn"><div class="t">Enter at least one reading</div></div>';return;}
   const res=evaluate(m);LAST=res;
   renderNext(res);
-  $('allRecs').innerHTML=`<h2>All findings</h2>`+res.recs.map(recHtml).join('');
+  $('allRecs').innerHTML=`<details><summary>All findings (${res.recs.length})</summary>${res.recs.map(recHtml).join('')}</details>`;
   tlAdd({kind:'check',set:{...S.set},meas:stripMeas(m),rules:res.recs.map(r=>r.id),next:res.next?res.next.id:null});
   renderTimeline();
   window.scrollTo({top:0,behavior:'smooth'});
@@ -1144,7 +1267,7 @@ function renderTimeline(){
   const ch=chartsFrom(rows,'i');$('tlCharts').innerHTML=ch||'<p class="soft">Trends appear after two checks.</p>';
   $('tlOut').innerHTML=T.slice().reverse().slice(0,300).map(e=>{
     const when=e.simMin!=null?`sim ${e.simMin} min`:new Date(e.t).toLocaleString();
-    const b={check:'<span class="badge">check</span>',acc:'<span class="badge acc">applied</span>',auto:'<span class="badge auto">auto</span>',skip:'<span class="badge skip">skipped</span>',setup:'<span class="badge">setup</span>',event:'<span class="badge auto">event</span>'}[e.kind]||`<span class="badge">${esc(e.kind)}</span>`;
+    const b={check:'<span class="badge">check</span>',acc:'<span class="badge acc">applied</span>',auto:'<span class="badge auto">auto</span>',skip:'<span class="badge skip">skipped</span>',ack:'<span class="badge acc">checked</span>',setup:'<span class="badge">setup</span>',event:'<span class="badge auto">event</span>'}[e.kind]||`<span class="badge">${esc(e.kind)}</span>`;
     let body='';
     if(e.kind==='check')body=`${Object.entries(e.meas||{}).map(([k,v])=>`${k} ${v}`).join(', ')} → next: ${e.next||'none'}`;
     else if(e.before)body=`${esc(e.note)} — ${Object.keys(e.after).filter(k=>e.before[k]!==e.after[k]).map(k=>`${label(k)} ${fmt(k,e.before[k])}→${fmt(k,e.after[k])}`).join(', ')} (${e.rule})`;
@@ -1359,14 +1482,14 @@ $('saveSet').onclick=()=>{
 };
 function isDark(){const t=document.documentElement.getAttribute('data-theme');return t?t==='dark':matchMedia('(prefers-color-scheme: dark)').matches;}
 $('themeBtn').onclick=()=>{const nt=isDark()?'light':'dark';document.documentElement.setAttribute('data-theme',nt);try{localStorage.setItem('vl-theme',nt);}catch(e){}
-  $('themeBtn').textContent=nt==='dark'?'Day':'Night';renderTimeline();renderSim();};
-try{matchMedia('(prefers-color-scheme: dark)').addEventListener('change',()=>{$('themeBtn').textContent=isDark()?'Day':'Night';renderTimeline();renderSim();});}catch(e){}
+  $('themeBtn').textContent=nt==='dark'?'DAY':'NIGHT';renderTimeline();renderSim();};
+try{matchMedia('(prefers-color-scheme: dark)').addEventListener('change',()=>{$('themeBtn').textContent=isDark()?'DAY':'NIGHT';renderTimeline();renderSim();});}catch(e){}
 function net(){const e=$('net');e.classList.toggle('off',!navigator.onLine);e.title=navigator.onLine?'Online — this app still sends nothing':'Offline — fully functional';}
 addEventListener('online',net);addEventListener('offline',net);net();
 function clearNow(){['mSpo2','mEtco2','mPpeak','mPplat','mSbp','mHr','mPh','mPaco2','mPao2','mHco3'].forEach(i=>$(i).value='');$('mAcute').checked=false;$('mStack').checked=false;$('allRecs').innerHTML='';}
 function renderAll(){renderPanel();renderNext(null);renderTables();renderTools();renderTimeline();renderSim();
   if(S.pt){$('proto').value=S.pt.proto;$('device').value=S.pt.device;}devSync();envSync();
-  $('themeBtn').textContent=isDark()?'Day':'Night';}
+  $('themeBtn').textContent=isDark()?'DAY':'NIGHT';}
 // restore sim session if state came from a scenario
 if(S.sim&&SCEN[S.sim]){SIM.p=SCEN[S.sim];SIM.x={paco2:40,pao2:90};SIM.on=false;}
 renderAll();

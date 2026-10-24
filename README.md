@@ -1,7 +1,7 @@
 # VENTLINE
 
 **Offline mechanical ventilation decision support for paramedics and critical care transport — and a research platform for closed-loop ventilator control.**
-Version 0.2.0 · Build 2026-10-24
+Version 0.3.0 · Build 2026-10-24
 
 A single-file, browser-resident decision engine for starting, adjusting, troubleshooting, and weaning mechanical ventilation. No backend, no external requests, no data transmission. Primary user: paramedics who run transport ventilators in ground, air, and prolonged field care.
 
@@ -24,9 +24,9 @@ patient state  ->  rules (modules)  ->  guardrails  ->  one next step  ->  timel
 
 | Screen | What it does |
 |---|---|
-| Now | Ventilator front-panel readout, readings in, one next step out, all findings, manual settings, PEEP/FiO₂ tables |
+| Checklist | Annunciator lights (OXY, CO₂, PRESS, CIRC, DEVICE), vent status strip, readings in, electronic checklist out (DO IT / CHECKED / SKIP per item), all findings, manual settings, PEEP/FiO₂ tables |
 | Setup | Height/sex (or swine actual weight), protocol (CPG 92 or ARDSnet), ventilator (Impact 754, Zoll EMV+ 731, Hamilton-T1, SAVe II, Ventway Sparrow, generic, ICU), conditions; initial settings |
-| Trouble | Airway compromise, DOPE, high- and low-pressure alarm lists, peak/plateau split, hypoxia steps, EtCO₂ work-up |
+| Non-normal | Airway compromise, DOPE, high- and low-pressure alarm lists, peak/plateau split, hypoxia steps, EtCO₂ work-up |
 | ABG | Pattern, P/F, metabolic caution, ARDSnet response; send to Now |
 | Wean | ARDSnet daily SBT screen and tolerance |
 | Tools | Minute ventilation, Ti/Te, driving pressure, compliance, S/F, P/F, PaCO₂–EtCO₂, alarm limits, O₂ cylinder duration, VT table |
@@ -57,6 +57,8 @@ Open `index.html` in any modern browser. Served over https (GitHub Pages) it ins
 Pediatric settings; sedation and paralytic dosing (CPG 92 refers to the JTS PFC Analgesia and Sedation CPG); prone positioning; ECMO; pressure-support step-down; hemodynamic module. Each waits for its primary source.
 
 ## Changelog
+
+**v0.3.0** — 2026-10-24. Full redesign as a flight-deck electronic checklist. Each check produces a checklist: warning/caution items first, the active item shows the change (old → new) with DO IT or CHECKED and SKIP, completed items turn green, items made stale by an applied change are marked RECHECK, normal parameters appear as SENSED. Annunciator lights by system, vent status strip, bottom page keys, dark-first with a day mode. DOPE and low-SpO₂ lists are tap-to-check. No rule changed.
 
 **v0.2.0** — 2026-10-24. Research-platform rebuild. Modular rule engine with rule IDs, guardrails (protocol ∩ device), JTS CPG 92 content and five transport-ventilator profiles, patient timeline with trends, single-compartment simulator with closed-loop mode and scenario harness, JSON/CSV export, PaCO₂–EtCO₂ gap tracking, CO₂ settling hold, off-table PEEP/FiO₂ stepping one level at a time. All v0.1 functions kept (setup, PEEP/FiO₂ tables, ABG, alarm triage, SBT screen and tolerance, log). v0.1.2 preserved on branch `backup/v0.1.2-pre-v0.2`.
 
