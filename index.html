@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0,viewport-fit=cover">
-<script>try{var _t=localStorage.getItem('vl-theme');if(_t==='night')document.documentElement.setAttribute('data-theme','night');}catch(e){}</script>
+<script>try{var _t=localStorage.getItem('vl-theme');if(_t==='night')_t='dark';if(_t==='dark'||_t==='light')document.documentElement.setAttribute('data-theme',_t);}catch(e){}</script>
 <meta name="theme-color" content="#132a40">
 <link rel="manifest" href="./manifest.webmanifest">
 <link rel="icon" href="./icon-192.png" sizes="192x192" type="image/png">
@@ -38,11 +38,16 @@
   --wash:#dfe6ec;--ok:#2c7a4b;--btn:#132a40;--btn-ink:#f7f9fb;
   --num:"SF Pro Display","Segoe UI Variable Display","Segoe UI",system-ui,sans-serif;
 }
-:root[data-theme="night"]{
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
   --paper:#0f1b27;--panel:#152433;--ink:#d8e1ea;--soft:#8fa1b3;--rule:#26394c;
   --o2:#5fbf86;--co2:#79a3dc;--pr:#b393dc;--crit:#ff7a70;--warn:#f0b35a;--amber:#d99a1c;
   --wash:#1b2d3f;--ok:#5fbf86;--btn:#d8e1ea;--btn-ink:#0f1b27;
-}
+;color-scheme:dark}}
+:root[data-theme="dark"]{
+  --paper:#0f1b27;--panel:#152433;--ink:#d8e1ea;--soft:#8fa1b3;--rule:#26394c;
+  --o2:#5fbf86;--co2:#79a3dc;--pr:#b393dc;--crit:#ff7a70;--warn:#f0b35a;--amber:#d99a1c;
+  --wash:#1b2d3f;--ok:#5fbf86;--btn:#d8e1ea;--btn-ink:#0f1b27;
+;color-scheme:dark}
 *{box-sizing:border-box}
 html,body{margin:0;background:var(--paper);color:var(--ink);font:16px/1.5 "Avenir Next","Segoe UI Variable Text","Segoe UI",system-ui,-apple-system,sans-serif;-webkit-text-size-adjust:100%}
 body{padding-bottom:env(safe-area-inset-bottom)}
@@ -51,7 +56,7 @@ button,input,select{font:inherit;color:inherit}
 .num{font-family:var(--num);font-variant-numeric:tabular-nums}
 
 /* top bar */
-.top{position:sticky;top:0;z-index:6;background:var(--ink);color:var(--paper);padding:10px 16px;display:flex;align-items:center;gap:10px}
+.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:6;background:var(--ink);color:var(--paper);padding:10px 16px;display:flex;align-items:center;gap:10px}
 .top h1{font-size:18px;margin:0;font-weight:700;letter-spacing:.08em}
 .top .ver{font-size:12px;opacity:.75}
 .top .sp{flex:1}
@@ -71,7 +76,7 @@ button,input,select{font:inherit;color:inherit}
 .ro .u{font-size:11px;color:var(--soft);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .ro.o2{border-top-color:var(--o2)}.ro.co2{border-top-color:var(--co2)}.ro.pr{border-top-color:var(--pr)}
 
-nav{display:flex;overflow-x:auto;gap:2px;padding:0 8px;background:var(--panel);border-bottom:1px solid var(--rule);position:sticky;top:56px;z-index:5;scrollbar-width:none}
+nav{display:flex;overflow-x:auto;gap:2px;padding:0 8px;background:var(--panel);border-bottom:1px solid var(--rule);position:sticky;top:calc(56px + env(safe-area-inset-top,0px));z-index:5;scrollbar-width:none}
 nav::-webkit-scrollbar{display:none}
 nav button{flex:0 0 auto;border:0;background:none;padding:12px 12px 10px;font-size:15px;color:var(--soft);border-bottom:3px solid transparent;min-height:46px}
 nav button.on{color:var(--ink);border-bottom-color:var(--amber);font-weight:600}
@@ -146,6 +151,10 @@ td.l,th.l{text-align:left}
 .badge.auto{background:var(--pr);color:#fff}.badge.acc{background:var(--ok);color:#fff}.badge.skip{background:var(--rule)}
 .simbar{border:1.5px dashed var(--pr);border-radius:10px;padding:10px 12px;margin:8px 0;font-size:14px}
 .disc{font-size:13px;color:var(--soft);border-top:1px solid var(--rule);padding-top:10px;margin-top:16px}
+.exportbox{position:fixed;left:0;right:0;bottom:0;z-index:15;background:var(--panel);border-top:2px solid var(--amber);padding:12px max(16px,env(safe-area-inset-right,0px)) calc(12px + env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px));max-height:60vh;overflow:auto}
+.exportbox .sp{flex:1}
+.exportbox textarea{width:100%;height:30vh;font:12px/1.4 ui-monospace,Menlo,Consolas,monospace;background:var(--paper);color:var(--ink);border:1.5px solid var(--rule);border-radius:8px;padding:8px}
+[hidden]{display:none!important}
 .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:var(--ink);color:var(--paper);padding:10px 16px;border-radius:10px;font-size:14px;opacity:0;pointer-events:none;transition:opacity .2s;z-index:20;max-width:92vw}
 .toast.on{opacity:1}
 @media (max-width:420px){.ro .v{font-size:19px}.readouts{gap:4px}.ro{padding:5px 4px}}
@@ -489,6 +498,11 @@ td.l,th.l{text-align:left}
   <p class="soft">© 2026 HAKOYA LLC · Auravyx Systems</p>
 </section>
 </main>
+<div class="exportbox" id="exportBox" hidden>
+  <div class="row" style="margin-top:0"><b id="exportName"></b><span class="sp"></span><button class="btn small" id="exportCopy" type="button">Copy</button><button class="btn ghost small" id="exportClose" type="button">Close</button></div>
+  <p class="soft">If the file did not save, copy this text into a file with the same name.</p>
+  <textarea id="exportText" readonly></textarea>
+</div>
 <div class="toast" id="toast" role="status"></div>
 
 <script>
@@ -1138,7 +1152,11 @@ function renderTimeline(){
     return `<div class="e"><div class="h">${when}</div>${b}${body}</div>`;
   }).join('');
 }
-function download(name,text,type){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([text],{type}));a.download=name;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove();},500);}
+function download(name,text,type){
+  try{const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([text],{type}));a.download=name;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove();},500);}catch(e){}
+  // Always also show the text, so export works where file saving is blocked
+  const box=$('exportBox');box.hidden=false;$('exportName').textContent=name;$('exportText').value=text;box.scrollIntoView({block:'nearest'});
+}
 function timelineCsv(){
   const keys=['t','simMin','kind','rule','next','note','vt','rr','peep','fio2','ie','spo2','etco2','ppeak','pplat','ph','paco2','pao2','hco3','sbp','hr','rules'];
   const lines=[keys.join(',')];
@@ -1148,9 +1166,10 @@ function timelineCsv(){
 }
 $('expJson').onclick=()=>download(`ventline-${S.id}.json`,JSON.stringify({app:'VENTLINE',version:VERSION,exported:new Date().toISOString(),patient:S.pt,conditions:S.cond,settings:S.set,timeline:S.timeline},null,2),'application/json');
 $('expCsv').onclick=()=>download(`ventline-${S.id}.csv`,timelineCsv(),'text/csv');
-$('copyLog').onclick=()=>{const t=S.timeline.map(e=>`${e.simMin!=null?'sim '+e.simMin+' min':e.t} ${e.kind}: ${e.note||e.next||''}`).join('\n')+`\n-- VENTLINE v${VERSION} · decision-support aid, not a medical record`;try{navigator.clipboard.writeText(t);toast('Copied');}catch(e){}};
+$('copyLog').onclick=()=>{const t=S.timeline.map(e=>`${e.simMin!=null?'sim '+e.simMin+' min':e.t} ${e.kind}: ${e.note||e.next||''}`).join('\n')+`\n-- VENTLINE v${VERSION} · decision-support aid, not a medical record`;if(navigator.clipboard){navigator.clipboard.writeText(t).then(()=>toast('Copied'),()=>download('ventline-log.txt',t,'text/plain'));}else download('ventline-log.txt',t,'text/plain');};
 $('printLog').onclick=()=>window.print();
-$('newPt').onclick=()=>{if(!confirm('Clear this patient and the timeline from this device?'))return;S=blankState();save();SIM.on=false;clearNow();renderAll();go('setup');};
+$('newPt').onclick=()=>{const b=$('newPt');if(!b.dataset.arm){b.dataset.arm='1';b.textContent='Tap again to clear';setTimeout(()=>{delete b.dataset.arm;b.textContent='New patient (clears)';},4000);return;}
+  delete b.dataset.arm;b.textContent='New patient (clears)';S=blankState();save();SIM.on=false;clearNow();renderAll();go('setup');};
 
 /* =====================================================================
    9. SIMULATOR (single-compartment lung)  [SIM]
@@ -1323,6 +1342,8 @@ function go(p){document.querySelectorAll('nav button').forEach(x=>x.classList.to
   document.querySelectorAll('section.page').forEach(s=>s.classList.toggle('on',s.id==='p-'+p));
   if(p==='log')renderTimeline();if(p==='tools')renderTools();if(p==='sim')renderSim();window.scrollTo({top:0});}
 window.go=go;
+$('exportClose').onclick=()=>{$('exportBox').hidden=true;};
+$('exportCopy').onclick=()=>{const t=$('exportText');navigator.clipboard?.writeText(t.value).then(()=>toast('Copied'),()=>{t.select();toast('Selected — copy with your keyboard');})??(t.select());};
 document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>go(b.dataset.p));
 $('evalBtn').onclick=runCheck;
 $('clearMeas').onclick=()=>{clearNow();renderNext(null);};
@@ -1336,15 +1357,16 @@ $('saveSet').onclick=()=>{
   $('manualGuard').innerHTML=g.notes.length?`<div class="guard">Guardrail: ${g.notes.map(esc).join(' ')}</div>`:'';
   renderPanel();renderTables();toast('Settings saved');
 };
-$('themeBtn').onclick=()=>{const r=document.documentElement;const nt=r.getAttribute('data-theme')==='night'?'':'night';
-  if(nt)r.setAttribute('data-theme',nt);else r.removeAttribute('data-theme');try{localStorage.setItem('vl-theme',nt);}catch(e){}
-  $('themeBtn').textContent=nt?'Day':'Night';renderTimeline();renderSim();};
+function isDark(){const t=document.documentElement.getAttribute('data-theme');return t?t==='dark':matchMedia('(prefers-color-scheme: dark)').matches;}
+$('themeBtn').onclick=()=>{const nt=isDark()?'light':'dark';document.documentElement.setAttribute('data-theme',nt);try{localStorage.setItem('vl-theme',nt);}catch(e){}
+  $('themeBtn').textContent=nt==='dark'?'Day':'Night';renderTimeline();renderSim();};
+try{matchMedia('(prefers-color-scheme: dark)').addEventListener('change',()=>{$('themeBtn').textContent=isDark()?'Day':'Night';renderTimeline();renderSim();});}catch(e){}
 function net(){const e=$('net');e.classList.toggle('off',!navigator.onLine);e.title=navigator.onLine?'Online — this app still sends nothing':'Offline — fully functional';}
 addEventListener('online',net);addEventListener('offline',net);net();
 function clearNow(){['mSpo2','mEtco2','mPpeak','mPplat','mSbp','mHr','mPh','mPaco2','mPao2','mHco3'].forEach(i=>$(i).value='');$('mAcute').checked=false;$('mStack').checked=false;$('allRecs').innerHTML='';}
 function renderAll(){renderPanel();renderNext(null);renderTables();renderTools();renderTimeline();renderSim();
   if(S.pt){$('proto').value=S.pt.proto;$('device').value=S.pt.device;}devSync();envSync();
-  $('themeBtn').textContent=document.documentElement.getAttribute('data-theme')==='night'?'Day':'Night';}
+  $('themeBtn').textContent=isDark()?'Day':'Night';}
 // restore sim session if state came from a scenario
 if(S.sim&&SCEN[S.sim]){SIM.p=SCEN[S.sim];SIM.x={paco2:40,pao2:90};SIM.on=false;}
 renderAll();
